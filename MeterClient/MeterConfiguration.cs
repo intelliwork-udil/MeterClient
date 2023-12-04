@@ -53,6 +53,8 @@ namespace MeterClient
         public TimeSynchronization dvtm { get; set; }
         public WakeUpSimNumber wsim { get; set; }
 
+
+        // Configuration Values
         public string msn { get; set; }
         public string password { get; set; }
 
@@ -68,17 +70,20 @@ namespace MeterClient
             File.WriteAllText(filePath, json);
         }
 
-        public void loadConfiguration(string filePath)
+        public MeterConfiguration loadConfiguration(string filePath)
         {
             if (File.Exists(filePath))
             {
                 string json = File.ReadAllText(filePath);
                 instance = JsonConvert.DeserializeObject<MeterConfiguration>(json);
+
+
             }
             else
             {
                 throw new FileNotFoundException($"File not found: {filePath}");
             }
+            return instance;
         }
 
 
@@ -106,70 +111,6 @@ namespace MeterClient
             return null;
         }
 
-
-        //public void DoSomething(string hexCommand)
-        //{
-        //    Console.WriteLine("Sending command: " + hexCommand);
-
-        //    var response = SendAndReceiveHexCommand(hexCommand);
-
-        //    if (!string.IsNullOrEmpty(response))
-        //    {
-        //        Console.WriteLine("Received response: " + response);
-        //    }
-        //    else
-        //    {
-        //        Console.WriteLine("No response received. Resending the command.");
-        //        DoSomething(hexCommand);
-        //    }
-        //}
-
-        //public string SendAndReceiveHexCommand(string hexCommand)
-        //{
-        //    var parsedCommand = hexCommand.Split(' ');
-        //    if (parsedCommand[0] == "DD")
-        //    {
-        //        if (parsedCommand[1] == "04")
-        //        {
-        //            // Check if Valid MSN
-        //            return "DA ";
-        //        }
-        //    }
-        //    return null;
-        //}
-
-
-        //public void DoSomething()
-        //{
-        //    Console.WriteLine("Hello, World!");
-
-
-        //    string hexCommand = "DD 04 81 BA A7 B8";
-
-
-
-        //    byte[] commandBytes = HexStringToByteArray(hexCommand);
-
-        //    YourCSharpFunction(commandBytes);
-        //}
-
-        //public void YourCSharpFunction(byte[] commandBytes)
-        //{
-        //    Console.WriteLine("Received command: " + BitConverter.ToString(commandBytes));
-        //}
-
-        //public byte[] HexStringToByteArray(string hex)
-        //{
-        //    string[] hexValues = hex.Split(' ');
-        //    byte[] bytes = new byte[hexValues.Length];
-
-        //    for (int i = 0; i < hexValues.Length; i++)
-        //    {
-        //        bytes[i] = Convert.ToByte(hexValues[i], 16);
-        //    }
-        //    Console.WriteLine(bytes.ToString());
-        //    return bytes;
-        //}
 
     }
 }
