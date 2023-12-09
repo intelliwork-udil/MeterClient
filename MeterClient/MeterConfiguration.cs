@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive;
 using System.Text;
 using System.Threading.Tasks;
 using MeterClient.BL;
@@ -11,7 +12,7 @@ namespace MeterClient
     public class MeterConfiguration
     {
         private static MeterConfiguration instance;
-        private MeterConfiguration()
+        private MeterConfiguration(String _msn, String _passowrd)
         {
             auxr = new AuxRelayOperations();
             oppo = new ActivateMeterOpticalPort();
@@ -25,6 +26,11 @@ namespace MeterClient
             tiou = new TimeOfUse();
             dvtm = new TimeSynchronization();
             wsim = new WakeUpSimNumber();
+            msn = _msn;
+
+            password = password;
+
+
         }
 
         public static MeterConfiguration Instance
@@ -33,7 +39,7 @@ namespace MeterClient
             {
                 if (instance == null)
                 {
-                    instance = new MeterConfiguration();
+                    instance = new MeterConfiguration("3098091234", "01234567");
                 }
                 return instance;
             }
