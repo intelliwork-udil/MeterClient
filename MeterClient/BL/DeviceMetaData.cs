@@ -51,5 +51,114 @@ namespace MeterClient.BL
             this.phase = phase;
             this.meter_type = meter_type;
         }
+
+
+        public void PerformCommand(string command)
+        {
+            if (command.Contains("C1 01 81 00 01 00 00 60 3C 06 FF 02 00 02 02 09 03"))
+            {
+                command = command.Replace("C1 01 81 00 01 00 00 60 3C 06 FF 02 00 02 02 09 03 ", "");
+
+                var cmdArr = command.Split(' ');
+
+                int hr = Convert.ToInt32(cmdArr[0], 16);
+                int min = Convert.ToInt32(cmdArr[1], 16);
+                int sec = Convert.ToInt32(cmdArr[2], 16);
+
+                initial_communication_time = new TimeOnly(hr, min, sec);
+
+
+                communication_interval = Convert.ToInt32(cmdArr[cmdArr.Length - 1], 16) + Convert.ToInt32(cmdArr[cmdArr.Length - 2], 16);
+            }
+
+            else if (command.Contains("C1 01 81 00 01 00 00 60 3C 12 FF 02 00 11"))
+            {
+                var val = command[command.Length - 1];
+                if (val == '1')
+                {
+                    communication_type = 1;
+                }
+                else
+                {
+                    communication_type = 2;
+                }
+            }
+            else if (command.Contains("C1 01 81 00 01 00 00 60 3C 0B FF 02 00 03 00"))
+            {
+                // Nothing in protocol Document
+            }
+            else if (command.Contains("C1 01 81 00 16 00 00 0F 00 00 FF 04 00 01 02 02 04 09 04"))
+            {
+                command = command.Replace("C1 01 81 00 16 00 00 0F 00 00 FF 04 00 01 02 02 04 09 04 ", "");
+
+                var cmdArr = command.Split(' ');
+
+                int hr = Convert.ToInt32(cmdArr[0], 16);
+                int min = Convert.ToInt32(cmdArr[1], 16);
+                int sec = Convert.ToInt32(cmdArr[2], 16);
+
+                mdi_reset_time = new TimeOnly(hr, min, sec);
+
+
+                mdi_reset_date = Convert.ToInt32(cmdArr[cmdArr.Length - 2], 16);
+            }
+            else if (command.Contains("C1 01 81 00 01 00 00 5E 42 1E FF 02 00 11 "))
+            {
+                var val = command[command.Length - 1];
+                if (val == '1')
+                {
+                    bidirectional_device = false;
+                }
+                else
+                {
+                    bidirectional_device = true;
+                }
+            }
+        }
+
+        public string GetDataCommand(string receivedCommand)
+        {
+            string command = "C4 01 81 00 ";
+            if (receivedCommand == "C0 01 81 00 01 00 00 60 3C 06 FF 02 00")
+            {
+                string hr = Convert.ToString(initial_communication_time.Hour, 16);
+                string min = Convert.ToString(initial_communication_time.Minute, 16);
+                string sec = Convert.ToString(initial_communication_time.Second, 16);
+
+                string interval = communication_interval.ToString("X4");
+
+                string comm_time = hr + " " + min + " " + sec;
+
+                command += "02 02 09 03 " + comm_time + " 12 " + interval;
+
+            }
+            else if (receivedCommand == "C0 01 81 00 01 00 00 60 3C 12 FF 02 00")
+            {
+                if (communication_type == 1)
+                {
+                    command += "11 01";
+                }
+                else
+                {
+                    command += "11 00";
+                }
+
+            }
+            else if (receivedCommand == "C0 01 81 00 01 00 00 5E 42 1E FF 02 00")
+            {
+                if (bidirectional_device)
+                {
+                    command += "11 02";
+                }
+                else
+                {
+                    command += "11 01";
+                }
+            }
+
+            return command;
+        }
+
+
     }
 }

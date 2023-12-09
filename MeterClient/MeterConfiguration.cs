@@ -64,7 +64,7 @@ namespace MeterClient
         public string msn { get; set; }
         public string password { get; set; }
 
-        public void saveConfiguration(string filePath = "")
+        public void saveConfiguration(string filePath = "config.json")
         {
             // Check if the file exists
             if (!File.Exists(filePath))
@@ -76,7 +76,7 @@ namespace MeterClient
             File.WriteAllText(filePath, json);
         }
 
-        public MeterConfiguration loadConfiguration(string filePath)
+        public MeterConfiguration loadConfiguration(string filePath = "config.json")
         {
             if (File.Exists(filePath))
             {
@@ -87,7 +87,7 @@ namespace MeterClient
             }
             else
             {
-                throw new FileNotFoundException($"File not found: {filePath}");
+                Console.WriteLine("File Not Found");
             }
             return instance;
         }
@@ -117,6 +117,46 @@ namespace MeterClient
             return null;
         }
 
+
+
+        public static byte[] StringToByteArray(string hex)
+        {
+            int length = hex.Length / 2;
+            byte[] byteArray = new byte[length];
+
+            for (int i = 0; i < length; i++)
+            {
+                byteArray[i] = Convert.ToByte(hex.Substring(i * 2, 2), 16);
+            }
+
+            return byteArray;
+        }
+
+        public static byte[] ExtractBytes(byte[] array, int from, int to)
+        {
+            int startIndex = (from < 0) ? array.Length + from : from;
+            int endIndex = (to < 0) ? array.Length + to : to;
+
+            if (startIndex < 0 || endIndex >= array.Length || startIndex > endIndex)
+            {
+                throw new ArgumentOutOfRangeException("Invalid range specified");
+            }
+
+            int length = endIndex - startIndex + 1;
+            byte[] result = new byte[length];
+            Array.Copy(array, startIndex, result, 0, length);
+            return result;
+        }
+
+        public static int[] ByteArrayToNumbers(byte[] array)
+        {
+            int[] numbers = new int[array.Length];
+            for (int i = 0; i < array.Length; i++)
+            {
+                numbers[i] = array[i];
+            }
+            return numbers;
+        }
 
     }
 }
