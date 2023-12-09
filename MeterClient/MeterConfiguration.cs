@@ -33,13 +33,33 @@ namespace MeterClient
 
         }
 
+        private MeterConfiguration()
+        {
+            auxr = new AuxRelayOperations();
+            oppo = new ActivateMeterOpticalPort();
+            dmdt = new DeviceMetaData();
+            ippo = new IpPort();
+            lsch = new LoadSheddingScheduling();
+            mdi = new MdiResetDate();
+            mdsm = new MeterDataSampling();
+            mtst = new MeterStatus();
+            sanc = new SanctionedLoadControl();
+            tiou = new TimeOfUse();
+            dvtm = new TimeSynchronization();
+            wsim = new WakeUpSimNumber();
+       
+
+      
+
+        }
+
         public static MeterConfiguration Instance
         {
             get
             {
                 if (instance == null)
                 {
-                    instance = new MeterConfiguration("3098091234", "01234567");
+                    instance = new MeterConfiguration("3098091234", "12345678");
                 }
                 return instance;
             }
@@ -82,6 +102,10 @@ namespace MeterClient
             {
                 string json = File.ReadAllText(filePath);
                 instance = JsonConvert.DeserializeObject<MeterConfiguration>(json);
+
+                instance.msn = "3098091234";
+                instance.password = "12345678";
+
 
 
             }
