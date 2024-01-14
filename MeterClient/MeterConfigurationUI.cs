@@ -12,7 +12,7 @@ namespace MeterClient
 {
     public class MeterConfigurationUI
     {
-        TcpClient client;
+        //TcpClient client;
         public static DateTime lastCommTime = DateTime.Now.AddSeconds(-20);
         // cancelled: Used for determining if a cancel has been requested
         private static volatile bool cancelled = false;
@@ -35,12 +35,13 @@ namespace MeterClient
             menu.Add("2. Run Meter Client");
             menu.Add("3. Exit");
 
-            meterConfiguration = MeterConfiguration.Instance;
+            //meterConfiguration = MeterConfiguration.Instance;
+            meterConfiguration = new MeterConfiguration();
 
-        
+
         }
 
-          protected static void myHandler(object sender, ConsoleCancelEventArgs args)
+        protected static void myHandler(object sender, ConsoleCancelEventArgs args)
         {
             args.Cancel = true;
             MeterConfigurationUI.cancelled = true;
@@ -52,13 +53,13 @@ namespace MeterClient
             // Main function
 
             Console.CancelKeyPress += new ConsoleCancelEventHandler(myHandler);
-        
 
-      
-        meterConfiguration = meterConfiguration.loadConfiguration();
-            meterConfiguration.ippo.primary_ip_address = "127.0.0.1";
 
-            meterConfiguration.ippo.primary_port = 32220;
+
+            meterConfiguration = meterConfiguration.loadConfiguration();
+            //meterConfiguration.ippo.primary_ip_address = "127.0.0.1";
+
+            //meterConfiguration.ippo.primary_port = 32220;
             Console.ForegroundColor = ConsoleColor.Green;
 
             Console.WriteLine($"Meter {meterConfiguration.msn} connected on {meterConfiguration.ippo.primary_ip_address}:{meterConfiguration.ippo.primary_port}");
@@ -94,10 +95,10 @@ namespace MeterClient
                     Console.WriteLine("Invalid Input");
                 }
 
-                meterConfiguration.saveConfiguration();
+                //meterConfiguration.saveConfiguration();
 
             }
-            meterConfiguration.saveConfiguration();
+            //meterConfiguration.saveConfiguration();
         }
 
 
@@ -126,40 +127,105 @@ namespace MeterClient
         public async Task RunMeterClient()
         {
 
-            IPAddress ipAddress = IPAddress.Parse(meterConfiguration.ippo.primary_ip_address);
+            //IPAddress ipAddress = IPAddress.Parse(meterConfiguration.ippo.primary_ip_address);
 
-            var ipEndPoint = new IPEndPoint(ipAddress, meterConfiguration.ippo.primary_port);
+            //var ipEndPoint = new IPEndPoint(ipAddress, meterConfiguration.ippo.primary_port);
 
-             client = new();
-            await client.ConnectAsync(ipEndPoint);
-            await using NetworkStream stream = client.GetStream();
+            //client = new();
+            //await client.ConnectAsync(ipEndPoint);
+            //await using NetworkStream stream = client.GetStream();
 
-   
 
-      await MeterClientRunningStream(stream);
+            //Console.WriteLine("How many clients do you want to run?");
+            //int clientCount = Convert.ToInt32(Console.ReadLine());
+
+            //List<MeterConfiguration> clients = new List<MeterConfiguration>();
+            //clients.Add(conf);
+
+            //for (int i = 0; i < clientCount; i++)
+            //{
+            //    Thread thread = new Thread(() => RunSingleClient());
+            //    thread.Start();
+
+            //    //await RunSingleClient();
+            //}
+
+            new MeterClientsGenerator().generateClients();
+
+            foreach (var client in MeterClientsGenerator.clients)
+            {
+                Thread thread = new Thread(() => RunSingleClient(client));
+                thread.Start();
+            }
+
 
         }
 
-        private async Task  MeterClientRunningStream(NetworkStream stream)
+        private async Task SamplingIntervalOfMeter(MeterConfiguration conf)
         {
-          
-          
-          
+            await Task.Run(async () =>
+            {
+                while (true)
+                {
+                    await conf.mdsm.GenerateSamplingData(conf);
+                    await Task.Delay(TimeSpan.FromMinutes(conf.mdsm.sampling_interval));
+                }
+            });
+        }
+
+
+        private async Task RunSingleClient(MeterConfiguration conf)
+        {
+            conf = conf.loadConfiguration("MeterConfigs/" + conf.msn + ".json");
+
+
+            Thread thread = new Thread(() => SamplingIntervalOfMeter(conf));
+            thread.Start();
+
+
+            //conf.msn = GenerateRandom10DigitNumber();
+            //conf.password = GenerateRandom10DigitNumber();
+
+
+
+            //conf.ippo.primary_ip_address = meterConfiguration.ippo.primary_ip_address;
+            //conf.ippo.primary_port = meterConfiguration.ippo.primary_port;
+
+            //conf.saveConfiguration("MeterConfigs/" + conf.msn + ".json");
+
+            IPAddress ipAddress = IPAddress.Parse(conf.ippo.primary_ip_address);
+
+            var ipEndPoint = new IPEndPoint(ipAddress, conf.ippo.primary_port);
+
+            TcpClient client = new();
+            await client.ConnectAsync(ipEndPoint);
+            NetworkStream stream = client.GetStream();
+
+            await MeterClientRunningStream(stream, conf, client);
+            //return stream;
+        }
+
+
+        private async Task MeterClientRunningStream(NetworkStream stream, MeterConfiguration conf, TcpClient client)
+        {
+
+
+
 
             do
             {
                 if (MeterConfigurationUI.cancelled) return;
-                string msn = ConvertToHex(meterConfiguration.msn);
+                string msn = ConvertToHex(conf.msn);
                 string heartbeat = "DD 04 " + msn;
 
-                if(!client.Connected)
+                if (!client.Connected)
                 {
-                    IPAddress ipAddress = IPAddress.Parse(meterConfiguration.ippo.primary_ip_address);
+                    IPAddress ipAddress = IPAddress.Parse(conf.ippo.primary_ip_address);
 
-                    var ipEndPoint = new IPEndPoint(ipAddress, meterConfiguration.ippo.primary_port);
-                 client = new();
+                    var ipEndPoint = new IPEndPoint(ipAddress, conf.ippo.primary_port);
+                    client = new();
                     await client.ConnectAsync(ipEndPoint);
-                stream =  client.GetStream();
+                    stream = client.GetStream();
                 }
 
                 SendCommand(stream, heartbeat);
@@ -175,7 +241,7 @@ namespace MeterClient
 
                     while (true)
                     {
-                        if ((DateTime.Now - lastCommTime).TotalSeconds > 180000)
+                        if ((DateTime.Now - lastCommTime).TotalSeconds > 180)
                             break;
                         if (MeterConfigurationUI.cancelled) return;
                         //if (Console.KeyAvailable)
@@ -191,11 +257,11 @@ namespace MeterClient
                             re = "";
                             do
                             {
-                                
+
                                 re = ReadCommand(stream);
-                                if (MeterConfigurationUI.cancelled) return ;
-                                if(String.IsNullOrEmpty(re))
-                                      Thread.Sleep(5000);
+                                if (MeterConfigurationUI.cancelled) return;
+                                if (String.IsNullOrEmpty(re))
+                                    Thread.Sleep(5000);
 
                             }
                             while (String.IsNullOrEmpty(re) && (DateTime.Now - lastCommTime).TotalSeconds < 180);
@@ -215,7 +281,7 @@ namespace MeterClient
                         switch (commandType)
                         {
                             case CommandType.AARQ:
-                                if (PasswordChecker(re))
+                                if (PasswordChecker(re, conf))
                                 {
                                     sendCmd = aare;
                                     Console.ForegroundColor = ConsoleColor.Green;
@@ -231,24 +297,128 @@ namespace MeterClient
                                 }
                                 break;
                             case CommandType.DeviceCreation:
-                                meterConfiguration.dmdt.PerformCommand(re);
+                                conf.dmdt.PerformCommand(re);
                                 sendCmd = "C5 01 81 00";
                                 var cmdArr = sendCmd.Split(' ');
                                 int count = cmdArr.Length;
-                                string finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16) + " " + sendCmd;
+                                string finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + sendCmd;
                                 sendCmd = finalCommand;
                                 break;
                             case CommandType.DMDT:
-                                sendCmd = meterConfiguration.dmdt.GetDataCommand(re);
-                                var cmdArr2 = sendCmd.Split(' ');
-                                int count2 = cmdArr2.Length;
-                                string finalCommand2 = "00 01 00 30 00 01 00 " + Convert.ToString(count2, 16) + " " + sendCmd;
-                                sendCmd = finalCommand2;
+                                sendCmd = conf.dmdt.GetDataCommand(re);
+                                if (sendCmd != "")
+                                {
+                                    var cmdArr2 = sendCmd.Split(' ');
+                                    int count2 = cmdArr2.Length;
+                                    string finalCommand2 = "00 01 00 30 00 01 00 " + Convert.ToString(count2, 16).PadLeft(2, '0') + " " + sendCmd;
+                                    sendCmd = finalCommand2;
+                                }
+                                break;
+                            case CommandType.MDSM:
+                                sendCmd = conf.mdsm.ProcessCommand(re);
+                                if (sendCmd != "")
+                                {
+                                    var cmdArr3 = sendCmd.Split(' ');
+                                    int count3 = cmdArr3.Length;
+                                    string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                                    sendCmd = finalCommand3;
+                                }
+                                break;
+                            case CommandType.AUXR:
+                                sendCmd = conf.auxr.ProcessCommand(re);
+                                if (sendCmd != "")
+                                {
+                                    var cmdArr3 = sendCmd.Split(' ');
+                                    int count3 = cmdArr3.Length;
+                                    string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                                    sendCmd = finalCommand3;
+                                }
+                                break;
+                            case CommandType.WSIM:
+                                sendCmd = conf.wsim.ProcessCommand(re);
+                                if (sendCmd != "")
+                                {
+                                    var cmdArr3 = sendCmd.Split(' ');
+                                    int count3 = cmdArr3.Length;
+                                    string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                                    sendCmd = finalCommand3;
+                                }
+                                break;
+                            case CommandType.IPPO:
+                                sendCmd = conf.ippo.ProcessCommand(re);
+                                if (sendCmd != "")
+                                {
+                                    var cmdArr3 = sendCmd.Split(' ');
+                                    int count3 = cmdArr3.Length;
+                                    string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                                    sendCmd = finalCommand3;
+                                }
+                                break;
+                            case CommandType.OPPO:
+                                sendCmd = conf.oppo.ProcessCommand(re);
+                                if (sendCmd != "")
+                                {
+                                    var cmdArr3 = sendCmd.Split(' ');
+                                    int count3 = cmdArr3.Length;
+                                    string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                                    sendCmd = finalCommand3;
+                                }
+                                break;
+                            case CommandType.TIOU:
+                                sendCmd = conf.tiou.ProcessCommand(re);
+                                if (sendCmd != "")
+                                {
+                                    var cmdArr3 = sendCmd.Split(' ');
+                                    int count3 = cmdArr3.Length;
+                                    string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                                    sendCmd = finalCommand3;
+                                }
+                                break;
+                            case CommandType.MDI:
+                                sendCmd = conf.mdi.ProcessCommand(re);
+                                if (sendCmd != "")
+                                {
+                                    var cmdArr3 = sendCmd.Split(' ');
+                                    int count3 = cmdArr3.Length;
+                                    string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                                    sendCmd = finalCommand3;
+                                }
+                                break;
+                            case CommandType.TIME_SYNCHRONIZATION:
+                                sendCmd = conf.dvtm.ProcessCommand(re);
+                                if (sendCmd != "")
+                                {
+                                    var cmdArr3 = sendCmd.Split(' ');
+                                    int count3 = cmdArr3.Length;
+                                    string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                                    sendCmd = finalCommand3;
+                                }
+                                break;
+                            //case CommandType.SANCTIONED_LOAD_CONTROL:
+                            //    sendCmd = conf.sanc.ProcessCommand(re);
+                            //    if (sendCmd != "")
+                            //    {
+                            //        var cmdArr3 = sendCmd.Split(' ');
+                            //        int count3 = cmdArr3.Length;
+                            //        string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                            //        sendCmd = finalCommand3;
+                            //    }
+                            //    break;
+                            case CommandType.LOAD_SHEDDING_SCHEDULLING:
+                                sendCmd = conf.lsch.ProcessCommand(re);
+                                if (sendCmd != "")
+                                {
+                                    var cmdArr3 = sendCmd.Split(' ');
+                                    int count3 = cmdArr3.Length;
+                                    string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                                    sendCmd = finalCommand3;
+                                }
+                                break;
+                            case CommandType.INST_DATA_READ:
+                                conf.mdsm.ProcessCommandForInstantaneousData(re, stream, conf);
+                                sendCmd = "";
                                 break;
                             case CommandType.Nothing:
-                               // Console.ForegroundColor = ConsoleColor.Red;
-                                //Console.WriteLine("In-Valid Command");
-                                //Console.ResetColor();
                                 sendCmd = error;
 
                                 break;
@@ -266,6 +436,9 @@ namespace MeterClient
                         }
                         sendCmd = "";
                         re = "";
+
+
+                        conf.saveConfiguration("MeterConfigs/" + conf.msn + ".json");
                     }
                 }
                 else
@@ -274,115 +447,14 @@ namespace MeterClient
 
 
                 }
+
             }
             while (!MeterConfigurationUI.cancelled);
             return;
         }
 
 
-        //private void SimulateMeterClientRunningStream()
-        //{
-        //    if (MeterConfigurationUI.cancelled) return;
-        //    string msn = ConvertToHex(meterConfiguration.msn);
-        //    string heartbeat = "DD 04 " + msn;
-
-        //    Console.WriteLine(heartbeat);
-
-        //    string re = Console.ReadLine();
-
-        //    Console.ForegroundColor = ConsoleColor.Green;
-        //    Console.WriteLine($"Message received: \"{re}\"");
-        //    Console.ResetColor();
-           
-
-        //    if (re == "DA")
-        //    {
-        //        Console.ForegroundColor = ConsoleColor.Green;
-        //        Console.WriteLine("Meter is Online (Press any Key To Quit)");
-        //        Console.ResetColor();
-
-        //        while (true)
-        //        {
-        //            if (MeterConfigurationUI.cancelled) return;
-        //            //if (Console.KeyAvailable)
-        //            //{
-        //            //    Console.ForegroundColor = ConsoleColor.Red;
-        //            //    Console.WriteLine("Stopping the Meter Client.");
-        //            //    Console.ResetColor();
-        //            //    break;
-        //            //}
-
-        //         //   re = Console.ReadLine();
-
-        //            // Print Data
-        //           // Console.WriteLine($"Message received: \"{re}\"");
-
-        //            // Determine Command Type
-        //            CommandType commandType = CommandClassifier.commandType(re);
-
-        //            string sendCmd = "";
-
-
-        //            switch (commandType)
-        //            {
-        //                case CommandType.AARQ:
-        //                    if (PasswordChecker(re))
-        //                    {
-        //                        sendCmd = aare;
-        //                        Console.ForegroundColor = ConsoleColor.Green;
-        //                        Console.WriteLine("Password Correct");
-        //                        Console.ResetColor();
-        //                    }
-        //                    else
-        //                    {
-        //                        sendCmd = error;
-        //                        Console.ForegroundColor = ConsoleColor.Red;
-        //                        Console.WriteLine("Password Incorrect");
-        //                        Console.ResetColor();
-        //                    }
-        //                    break;
-        //                case CommandType.DeviceCreation:
-        //                    meterConfiguration.dmdt.PerformCommand(re);
-        //                    sendCmd = "C5 01 81 00";
-        //                    var cmdArr = sendCmd.Split(' ');
-        //                    int count = cmdArr.Length;
-        //                    string finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16) + " " + sendCmd;
-        //                    sendCmd = finalCommand;
-        //                    break;
-        //                case CommandType.DMDT:
-        //                    sendCmd = meterConfiguration.dmdt.GetDataCommand(re);
-        //                    var cmdArr2 = sendCmd.Split(' ');
-        //                    int count2 = cmdArr2.Length;
-        //                    string finalCommand2 = "00 01 00 30 00 01 00 " + Convert.ToString(count2, 16) + " " + sendCmd;
-        //                    sendCmd = finalCommand2;
-        //                    break;
-        //                case CommandType.Nothing:
-        //                    break;
-        //                default:
-        //                    Console.ForegroundColor = ConsoleColor.Red;
-        //                    Console.WriteLine("In-Valid Command");
-        //                    Console.ResetColor();
-        //                    sendCmd = error;
-        //                    break;
-        //            }
-
-        //            if (sendCmd != "")
-        //            {
-        //                Console.WriteLine(sendCmd);
-        //            }
-
-        //            re = "";
-        //        }
-        //    }
-        //    else
-        //    {
-        //        Thread.Sleep(3000);
-        //        SimulateMeterClientRunningStream();
-        //    }
-        //}
-
-
-        public string ReadCommand(NetworkStream stream)
+        public static string ReadCommand(NetworkStream stream)
         {
             string re;
             try
@@ -394,9 +466,9 @@ namespace MeterClient
                 int count = stream.Read(data, 0, data.Length);
 
                 // Convert Data to Hex String
-                 re = Convert.ToHexString(data, 0, count);
+                re = Convert.ToHexString(data, 0, count);
                 re = re.Replace(" ", "");
-                re = AddSpaceEveryNCharacters(re, 2);
+                re = MeterConfigurationUI.AddSpaceEveryNCharacters(re, 2);
                 if (count != 0)
                 {
                     Console.ForegroundColor = ConsoleColor.Green;
@@ -404,26 +476,38 @@ namespace MeterClient
                     Console.ResetColor();
                     lastCommTime = DateTime.Now;
                 }
-                
+
                 return re;
-            }catch(Exception ex)
+            }
+            catch (Exception ex)
             {
                 return null;
             }
-            }
-
-        public void SendCommand(NetworkStream stream, string commandStr)
-        {
-            byte[] command = commandStr.Split()
-            .Select(s => Convert.ToByte(s, 16)).ToArray();
-
-            stream.Write(command, 0, command.Length);
-            Console.ForegroundColor = ConsoleColor.Blue;
-            Console.WriteLine("Meter: " + commandStr);
-            Console.ResetColor();
         }
 
-        public bool PasswordChecker(string aarq)
+        public static void SendCommand(NetworkStream stream, string commandStr)
+        {
+            try
+            {
+                commandStr = commandStr.Replace(" ", "");
+
+                commandStr = AddSpaceEveryNCharacters(commandStr, 2);
+
+                byte[] command = commandStr.Split()
+                .Select(s => Convert.ToByte(s, 16)).ToArray();
+
+                stream.Write(command, 0, command.Length);
+                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.WriteLine("Meter: " + commandStr);
+                Console.ResetColor();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+        }
+
+        public bool PasswordChecker(string aarq, MeterConfiguration conf)
         {
             string s = "00 01 00 30 00 01 00 38 60 36 A1 09 06 07 60 85 74 05 08 01 01 8A 02 07 80 8B 07 60 85 74 05 08 02 01 AC 0A 80 08 ";
 
@@ -431,22 +515,27 @@ namespace MeterClient
 
             string password = aarq.Substring(s.Length, endIndex - s.Length).Replace(" ", "");
 
-            string meterPassword = ConvertToX4ByteString(meterConfiguration.password).Replace(" ", "");
+            //string meterPassword = ConvertToX4ByteString(meterConfiguration.password).Replace(" ", "");
+
+            string meterPassword = string.Concat(conf.password.Select(c => "3" + c));
+
 
             Console.WriteLine($"{meterPassword} {password}");
 
-            //  return (password == meterPassword);
-            return true;
+            return (password == meterPassword);
+            //return true;
         }
 
 
 
-        public string AddSpaceEveryNCharacters(string input, int n)
+        public static string AddSpaceEveryNCharacters(string input, int n)
         {
             if (n <= 0)
             {
                 throw new ArgumentException("Invalid value for N");
             }
+
+            input = input.Replace(" ", "");
 
             int length = input.Length;
             int numSpaces = (length - 1) / n;

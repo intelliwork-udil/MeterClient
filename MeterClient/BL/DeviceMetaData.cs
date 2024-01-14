@@ -69,6 +69,9 @@ namespace MeterClient.BL
 
 
                 communication_interval = Convert.ToInt32(cmdArr[cmdArr.Length - 1], 16) + Convert.ToInt32(cmdArr[cmdArr.Length - 2], 16);
+
+
+                Console.WriteLine("Initial Communication Time: " + initial_communication_time.ToString());
             }
 
             else if (command.Contains("C1 01 81 00 01 00 00 60 3C 12 FF 02 00 11"))
@@ -82,9 +85,11 @@ namespace MeterClient.BL
                 {
                     communication_type = 2;
                 }
+                Console.WriteLine("Communication Type: " + communication_type);
             }
             else if (command.Contains("C1 01 81 00 01 00 00 60 3C 0B FF 02 00 03 00"))
             {
+                Console.WriteLine("Nothing Proceed");
                 // Nothing in protocol Document
             }
             else if (command.Contains("C1 01 81 00 16 00 00 0F 00 00 FF 04 00 01 02 02 04 09 04"))
@@ -101,6 +106,8 @@ namespace MeterClient.BL
 
 
                 mdi_reset_date = Convert.ToInt32(cmdArr[cmdArr.Length - 2], 16);
+
+                Console.WriteLine("MDI Reset Time: " + mdi_reset_time.ToString());
             }
             else if (command.Contains("C1 01 81 00 01 00 00 5E 42 1E FF 02 00 11 "))
             {
@@ -113,6 +120,8 @@ namespace MeterClient.BL
                 {
                     bidirectional_device = true;
                 }
+
+                Console.WriteLine("Bidirectional Device: " + bidirectional_device);
             }
         }
 
@@ -154,6 +163,10 @@ namespace MeterClient.BL
                 {
                     command += "11 01";
                 }
+            }
+            else
+            {
+                command = "";
             }
 
             return command;

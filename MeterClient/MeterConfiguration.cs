@@ -11,8 +11,8 @@ namespace MeterClient
 {
     public class MeterConfiguration
     {
-        private static MeterConfiguration instance;
-        private MeterConfiguration(String _msn, String _passowrd)
+        //private static MeterConfiguration instance;
+        public MeterConfiguration(String _msn, String _passowrd)
         {
             auxr = new AuxRelayOperations();
             oppo = new ActivateMeterOpticalPort();
@@ -26,14 +26,15 @@ namespace MeterClient
             tiou = new TimeOfUse();
             dvtm = new TimeSynchronization();
             wsim = new WakeUpSimNumber();
-            msn = _msn;
 
+
+            msn = _msn;
             password = password;
 
 
         }
 
-        private MeterConfiguration()
+        public MeterConfiguration()
         {
             auxr = new AuxRelayOperations();
             oppo = new ActivateMeterOpticalPort();
@@ -47,23 +48,19 @@ namespace MeterClient
             tiou = new TimeOfUse();
             dvtm = new TimeSynchronization();
             wsim = new WakeUpSimNumber();
-       
-
-      
-
         }
 
-        public static MeterConfiguration Instance
-        {
-            get
-            {
-                if (instance == null)
-                {
-                    instance = new MeterConfiguration("3098091234", "12345678");
-                }
-                return instance;
-            }
-        }
+        //public static MeterConfiguration Instance
+        //{
+        //    get
+        //    {
+        //        if (instance == null)
+        //        {
+        //            instance = new MeterConfiguration("3098091234", "12345678");
+        //        }
+        //        return instance;
+        //    }
+        //}
 
 
         public AuxRelayOperations auxr { get; set; }
@@ -101,19 +98,13 @@ namespace MeterClient
             if (File.Exists(filePath))
             {
                 string json = File.ReadAllText(filePath);
-                instance = JsonConvert.DeserializeObject<MeterConfiguration>(json);
-
-                instance.msn = "3098091234";
-                instance.password = "12345678";
-
-
-
+                return JsonConvert.DeserializeObject<MeterConfiguration>(json);
             }
             else
             {
                 Console.WriteLine("File Not Found");
             }
-            return instance;
+            return this;
         }
 
 

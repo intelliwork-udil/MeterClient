@@ -73,5 +73,36 @@ namespace MeterClient.BL
             season_profile = new List<SeasonProfile>();
             holiday_profile = new List<HolidayProfile>();
         }
+
+        public string ProcessCommand(string re)
+        {
+            string command = "";
+
+            if (re.Contains("C0 01 81 00 14 00 00 0D 00 00 FF 0A 00"))
+            {
+                string ayear = activation_datetime.Year.ToString("X").PadLeft(4, '0');
+                string amonth = activation_datetime.Month.ToString("X").PadLeft(2, '0');
+                string aday = activation_datetime.Day.ToString("X").PadLeft(2, '0');
+
+                string ahour = activation_datetime.Hour.ToString("X").PadLeft(2, '0');
+                string aminute = activation_datetime.Minute.ToString("X").PadLeft(2, '0');
+                string asecond = activation_datetime.Second.ToString("X").PadLeft(2, '0');
+
+                ayear = MeterConfigurationUI.AddSpaceEveryNCharacters(ayear, 2);
+                amonth = MeterConfigurationUI.AddSpaceEveryNCharacters(amonth, 2);
+                aday = MeterConfigurationUI.AddSpaceEveryNCharacters(aday, 2);
+
+                ahour = MeterConfigurationUI.AddSpaceEveryNCharacters(ahour, 2);
+                aminute = MeterConfigurationUI.AddSpaceEveryNCharacters(aminute, 2);
+                asecond = MeterConfigurationUI.AddSpaceEveryNCharacters(asecond, 2);
+
+
+
+                string act_date_time = ayear + " " + amonth + " " + aday + " " + ahour + " " + aminute + " " + asecond;
+                command = "C4 01 81 00 09 0C " + act_date_time + " 00 00 00 00 00";
+            }
+
+            return command;
+        }
     }
 }

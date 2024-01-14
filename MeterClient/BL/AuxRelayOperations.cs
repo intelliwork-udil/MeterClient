@@ -42,5 +42,22 @@ namespace MeterClient.BL
             this.relay_operate = relay_operate;
             this.request_datetime = request_datetime;
         }
+
+        public string ProcessCommand(string re)
+        {
+            string command = "";
+            if (re.Contains("C0 01 81 00 46 00 00 60 03 0A FF 02 00"))
+            {
+                string relayOperateHex = relay_operate ? "01" : "00";
+                command = "C4 01 81 00 03 " + relayOperateHex;
+            }
+            else if (re.Contains("C0 01 81 00 46 00 00 60 03 0A FF 03 00"))
+            {
+                string relayOperateHex = relay_operate ? "01" : "00";
+                command = "C4 01 81 00 16 " + relayOperateHex;
+            }
+            return command;
+        }
     }
+
 }

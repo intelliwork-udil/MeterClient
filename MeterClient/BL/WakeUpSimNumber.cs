@@ -25,5 +25,33 @@ namespace MeterClient.BL
             this.wakeup_number_2 = wakeup_number_2;
             this.wakeup_number_3 = wakeup_number_3;
         }
+
+        public string ProcessCommand(string re)
+        {
+            string command = "C4 01 81 00 09 0B ";
+
+            string sim = "";
+
+            if (re == "00 01 00 30 00 01 00 0D C0 01 81 00 01 00 00 60 0C 80 FF 02 00")
+            {
+                sim = wakeup_number_1;
+            }
+            else if (re == "00 01 00 30 00 01 00 0D C0 01 81 00 01 00 00 60 0C 81 FF 02 00")
+            {
+                sim = wakeup_number_2;
+            }
+            else if (re == "00 01 00 30 00 01 00 0D C0 01 81 00 01 00 00 60 0C 82 FF 02 00")
+            {
+                sim = wakeup_number_3;
+            }
+
+            sim = string.Concat(sim.Select(c => "3" + c));
+
+            sim = MeterConfigurationUI.AddSpaceEveryNCharacters(sim, 2);
+
+            command += sim;
+
+            return command;
+        }
     }
 }

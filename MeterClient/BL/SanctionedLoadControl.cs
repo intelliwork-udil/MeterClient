@@ -70,5 +70,15 @@ namespace MeterClient.BL
             this.retry_clear_interval = retry_clear_interval;
             this.request_datetime = request_datetime;
         }
+
+        public string ProcessCommand(string re)
+        {
+            string command = "C5 01 81 00";
+
+
+
+
+            return command;
+        }
     }
 }

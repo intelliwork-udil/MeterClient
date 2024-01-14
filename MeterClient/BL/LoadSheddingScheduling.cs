@@ -45,5 +45,17 @@ namespace MeterClient.BL
             load_schedding_slabs = new JsonArray();
             this.request_datetime = request_datetime;
         }
+
+
+        public string ProcessCommand(string re)
+        {
+            string command = "C7 01 81 00 00";
+
+
+
+
+
+            return command;
+        }
     }
 }
