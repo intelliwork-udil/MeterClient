@@ -161,26 +161,15 @@ namespace MeterClient
 
         }
 
-        private async Task SamplingIntervalOfMeter(MeterConfiguration conf)
-        {
-            await Task.Run(async () =>
-            {
-                while (true)
-                {
-                    await conf.mdsm.GenerateSamplingData(conf);
-                    await Task.Delay(TimeSpan.FromMinutes(conf.mdsm.sampling_interval));
-                }
-            });
-        }
-
 
         private async Task RunSingleClient(MeterConfiguration conf)
         {
             conf = conf.loadConfiguration("MeterConfigs/" + conf.msn + ".json");
 
+            await conf.mdsm.GenerateSamplingData(conf);
 
-            Thread thread = new Thread(() => SamplingIntervalOfMeter(conf));
-            thread.Start();
+            //Thread thread = new Thread(() => conf.mdsm.GenerateSamplingData(conf));
+            //thread.Start();
 
 
             //conf.msn = GenerateRandom10DigitNumber();
@@ -214,6 +203,11 @@ namespace MeterClient
 
             do
             {
+
+            startConnection:
+
+
+
                 if (MeterConfigurationUI.cancelled) return;
                 string msn = ConvertToHex(conf.msn);
                 string heartbeat = "DD 04 " + msn;
@@ -228,6 +222,8 @@ namespace MeterClient
                     stream = client.GetStream();
                 }
 
+
+
                 SendCommand(stream, heartbeat);
 
 
@@ -235,22 +231,12 @@ namespace MeterClient
 
                 if (re == "DA")
                 {
-                    //Console.ForegroundColor = ConsoleColor.Green;
-                    //Console.WriteLine("Meter is Online (Press any Key To Quit)");
-                    //Console.ResetColor();
-
                     while (true)
                     {
                         if ((DateTime.Now - lastCommTime).TotalSeconds > 180)
                             break;
                         if (MeterConfigurationUI.cancelled) return;
-                        //if (Console.KeyAvailable)
-                        //{
-                        //    Console.ForegroundColor = ConsoleColor.Red;
-                        //    Console.WriteLine("Stopping the Meter Client.");
-                        //    Console.ResetColor();
-                        //    break;
-                        //}
+
 
                         try
                         {
@@ -261,7 +247,24 @@ namespace MeterClient
                                 re = ReadCommand(stream);
                                 if (MeterConfigurationUI.cancelled) return;
                                 if (String.IsNullOrEmpty(re))
-                                    Thread.Sleep(5000);
+                                {
+                                    if (conf.dmdt.communication_type == 1)
+                                    {
+                                        client.Close();
+                                        Thread.Sleep(conf.dmdt.communication_interval * 1000);
+                                        goto startConnection;
+                                    }
+                                    else
+                                    {
+                                        Thread.Sleep(5000);
+                                    }
+                                }
+
+
+                                if ((DateTime.Now - lastCommTime).TotalSeconds > 180)
+                                {
+                                    SendCommand(stream, heartbeat);
+                                }
 
                             }
                             while (String.IsNullOrEmpty(re) && (DateTime.Now - lastCommTime).TotalSeconds < 180);
@@ -270,173 +273,8 @@ namespace MeterClient
                         {
                             Console.WriteLine("Connection is inactive");
                         }
-                        // Print Data
-                        //Console.WriteLine($"Message received: \"{re}\"");
 
-                        // Determine Command Type
-                        CommandType commandType = CommandClassifier.commandType(re);
-
-                        string sendCmd = "";
-
-                        switch (commandType)
-                        {
-                            case CommandType.AARQ:
-                                if (PasswordChecker(re, conf))
-                                {
-                                    sendCmd = aare;
-                                    Console.ForegroundColor = ConsoleColor.Green;
-                                    Console.WriteLine("Password Correct");
-                                    Console.ResetColor();
-                                }
-                                else
-                                {
-                                    sendCmd = error;
-                                    Console.ForegroundColor = ConsoleColor.Red;
-                                    Console.WriteLine("Password Incorrect");
-                                    Console.ResetColor();
-                                }
-                                break;
-                            case CommandType.DeviceCreation:
-                                conf.dmdt.PerformCommand(re);
-                                sendCmd = "C5 01 81 00";
-                                var cmdArr = sendCmd.Split(' ');
-                                int count = cmdArr.Length;
-                                string finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + sendCmd;
-                                sendCmd = finalCommand;
-                                break;
-                            case CommandType.DMDT:
-                                sendCmd = conf.dmdt.GetDataCommand(re);
-                                if (sendCmd != "")
-                                {
-                                    var cmdArr2 = sendCmd.Split(' ');
-                                    int count2 = cmdArr2.Length;
-                                    string finalCommand2 = "00 01 00 30 00 01 00 " + Convert.ToString(count2, 16).PadLeft(2, '0') + " " + sendCmd;
-                                    sendCmd = finalCommand2;
-                                }
-                                break;
-                            case CommandType.MDSM:
-                                sendCmd = conf.mdsm.ProcessCommand(re);
-                                if (sendCmd != "")
-                                {
-                                    var cmdArr3 = sendCmd.Split(' ');
-                                    int count3 = cmdArr3.Length;
-                                    string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
-                                    sendCmd = finalCommand3;
-                                }
-                                break;
-                            case CommandType.AUXR:
-                                sendCmd = conf.auxr.ProcessCommand(re);
-                                if (sendCmd != "")
-                                {
-                                    var cmdArr3 = sendCmd.Split(' ');
-                                    int count3 = cmdArr3.Length;
-                                    string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
-                                    sendCmd = finalCommand3;
-                                }
-                                break;
-                            case CommandType.WSIM:
-                                sendCmd = conf.wsim.ProcessCommand(re);
-                                if (sendCmd != "")
-                                {
-                                    var cmdArr3 = sendCmd.Split(' ');
-                                    int count3 = cmdArr3.Length;
-                                    string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
-                                    sendCmd = finalCommand3;
-                                }
-                                break;
-                            case CommandType.IPPO:
-                                sendCmd = conf.ippo.ProcessCommand(re);
-                                if (sendCmd != "")
-                                {
-                                    var cmdArr3 = sendCmd.Split(' ');
-                                    int count3 = cmdArr3.Length;
-                                    string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
-                                    sendCmd = finalCommand3;
-                                }
-                                break;
-                            case CommandType.OPPO:
-                                sendCmd = conf.oppo.ProcessCommand(re);
-                                if (sendCmd != "")
-                                {
-                                    var cmdArr3 = sendCmd.Split(' ');
-                                    int count3 = cmdArr3.Length;
-                                    string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
-                                    sendCmd = finalCommand3;
-                                }
-                                break;
-                            case CommandType.TIOU:
-                                sendCmd = conf.tiou.ProcessCommand(re);
-                                if (sendCmd != "")
-                                {
-                                    var cmdArr3 = sendCmd.Split(' ');
-                                    int count3 = cmdArr3.Length;
-                                    string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
-                                    sendCmd = finalCommand3;
-                                }
-                                break;
-                            case CommandType.MDI:
-                                sendCmd = conf.mdi.ProcessCommand(re);
-                                if (sendCmd != "")
-                                {
-                                    var cmdArr3 = sendCmd.Split(' ');
-                                    int count3 = cmdArr3.Length;
-                                    string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
-                                    sendCmd = finalCommand3;
-                                }
-                                break;
-                            case CommandType.TIME_SYNCHRONIZATION:
-                                sendCmd = conf.dvtm.ProcessCommand(re);
-                                if (sendCmd != "")
-                                {
-                                    var cmdArr3 = sendCmd.Split(' ');
-                                    int count3 = cmdArr3.Length;
-                                    string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
-                                    sendCmd = finalCommand3;
-                                }
-                                break;
-                            //case CommandType.SANCTIONED_LOAD_CONTROL:
-                            //    sendCmd = conf.sanc.ProcessCommand(re);
-                            //    if (sendCmd != "")
-                            //    {
-                            //        var cmdArr3 = sendCmd.Split(' ');
-                            //        int count3 = cmdArr3.Length;
-                            //        string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
-                            //        sendCmd = finalCommand3;
-                            //    }
-                            //    break;
-                            case CommandType.LOAD_SHEDDING_SCHEDULLING:
-                                sendCmd = conf.lsch.ProcessCommand(re);
-                                if (sendCmd != "")
-                                {
-                                    var cmdArr3 = sendCmd.Split(' ');
-                                    int count3 = cmdArr3.Length;
-                                    string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
-                                    sendCmd = finalCommand3;
-                                }
-                                break;
-                            case CommandType.INST_DATA_READ:
-                                conf.mdsm.ProcessCommandForInstantaneousData(re, stream, conf);
-                                sendCmd = "";
-                                break;
-                            case CommandType.Nothing:
-                                sendCmd = error;
-
-                                break;
-                            default:
-                                Console.ForegroundColor = ConsoleColor.Red;
-                                Console.WriteLine("In-Valid Command");
-                                Console.ResetColor();
-                                sendCmd = error;
-                                break;
-                        }
-
-                        if (sendCmd != "")
-                        {
-                            SendCommand(stream, sendCmd);
-                        }
-                        sendCmd = "";
-                        re = "";
-
+                        ProcessCommand(stream, conf, re);
 
                         conf.saveConfiguration("MeterConfigs/" + conf.msn + ".json");
                     }
@@ -453,6 +291,189 @@ namespace MeterClient
             return;
         }
 
+        private void ProcessCommand(NetworkStream stream, MeterConfiguration conf, string re)
+        {
+            CommandType commandType = CommandClassifier.commandType(re);
+
+            string sendCmd = "";
+
+            switch (commandType)
+            {
+                case CommandType.AARQ:
+                    if (PasswordChecker(re, conf))
+                    {
+                        sendCmd = aare;
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine("Password Correct");
+                        Console.ResetColor();
+                    }
+                    else
+                    {
+                        sendCmd = error;
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine("Password Incorrect");
+                        Console.ResetColor();
+                    }
+                    break;
+                case CommandType.DeviceCreation:
+                    conf.dmdt.PerformCommand(re);
+                    sendCmd = "C5 01 81 00";
+                    var cmdArr = sendCmd.Split(' ');
+                    int count = cmdArr.Length;
+                    string finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + sendCmd;
+                    sendCmd = finalCommand;
+                    break;
+                case CommandType.DMDT:
+                    sendCmd = conf.dmdt.GetDataCommand(re);
+                    if (sendCmd != "")
+                    {
+                        var cmdArr2 = sendCmd.Split(' ');
+                        int count2 = cmdArr2.Length;
+                        string finalCommand2 = "00 01 00 30 00 01 00 " + Convert.ToString(count2, 16).PadLeft(2, '0') + " " + sendCmd;
+                        sendCmd = finalCommand2;
+                    }
+                    break;
+                case CommandType.MDSM:
+                    sendCmd = conf.mdsm.ProcessCommand(re);
+                    if (sendCmd != "")
+                    {
+                        var cmdArr3 = sendCmd.Split(' ');
+                        int count3 = cmdArr3.Length;
+                        string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                        sendCmd = finalCommand3;
+                    }
+                    break;
+                case CommandType.AUXR:
+                    sendCmd = conf.auxr.ProcessCommand(re);
+                    if (sendCmd != "")
+                    {
+                        var cmdArr3 = sendCmd.Split(' ');
+                        int count3 = cmdArr3.Length;
+                        string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                        sendCmd = finalCommand3;
+                    }
+                    break;
+                case CommandType.WSIM:
+                    sendCmd = conf.wsim.ProcessCommand(re);
+                    if (sendCmd != "")
+                    {
+                        var cmdArr3 = sendCmd.Split(' ');
+                        int count3 = cmdArr3.Length;
+                        string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                        sendCmd = finalCommand3;
+                    }
+                    break;
+                case CommandType.IPPO:
+                    sendCmd = conf.ippo.ProcessCommand(re);
+                    if (sendCmd != "")
+                    {
+                        var cmdArr3 = sendCmd.Split(' ');
+                        int count3 = cmdArr3.Length;
+                        string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                        sendCmd = finalCommand3;
+                    }
+                    break;
+                case CommandType.OPPO:
+                    sendCmd = conf.oppo.ProcessCommand(re);
+                    if (sendCmd != "")
+                    {
+                        var cmdArr3 = sendCmd.Split(' ');
+                        int count3 = cmdArr3.Length;
+                        string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                        sendCmd = finalCommand3;
+                    }
+                    break;
+                case CommandType.TIOU:
+                    sendCmd = conf.tiou.ProcessCommand(re);
+                    if (sendCmd != "")
+                    {
+                        var cmdArr3 = sendCmd.Split(' ');
+                        int count3 = cmdArr3.Length;
+                        string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                        sendCmd = finalCommand3;
+                    }
+                    break;
+                case CommandType.MDI:
+                    sendCmd = conf.mdi.ProcessCommand(re);
+                    if (sendCmd != "")
+                    {
+                        var cmdArr3 = sendCmd.Split(' ');
+                        int count3 = cmdArr3.Length;
+                        string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                        sendCmd = finalCommand3;
+                    }
+                    break;
+                case CommandType.TIME_SYNCHRONIZATION:
+                    sendCmd = conf.dvtm.ProcessCommand(re);
+                    if (sendCmd != "")
+                    {
+                        var cmdArr3 = sendCmd.Split(' ');
+                        int count3 = cmdArr3.Length;
+                        string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                        sendCmd = finalCommand3;
+                    }
+                    break;
+                //case CommandType.SANCTIONED_LOAD_CONTROL:
+                //    sendCmd = conf.sanc.ProcessCommand(re);
+                //    if (sendCmd != "")
+                //    {
+                //        var cmdArr3 = sendCmd.Split(' ');
+                //        int count3 = cmdArr3.Length;
+                //        string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                //        sendCmd = finalCommand3;
+                //    }
+                //    break;
+                case CommandType.LOAD_SHEDDING_SCHEDULLING:
+                    sendCmd = conf.lsch.ProcessCommand(re);
+                    if (sendCmd != "")
+                    {
+                        var cmdArr3 = sendCmd.Split(' ');
+                        int count3 = cmdArr3.Length;
+                        string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                        sendCmd = finalCommand3;
+                    }
+                    break;
+                case CommandType.INST_DATA_READ:
+                    re = conf.mdsm.ProcessCommandForInstantaneousData(re, stream, conf);
+                    if (re != "")
+                    {
+                        ProcessCommand(stream, conf, re);
+                    }
+                    sendCmd = "";
+                    break;
+                case CommandType.BILL_DATA_READ:
+                    re = conf.mdsm.ProcessCommandForBillingData(re, stream, conf);
+                    if (re != "")
+                    {
+                        ProcessCommand(stream, conf, re);
+                    }
+                    sendCmd = "";
+                    break;
+                case CommandType.LPRO_DATA_READ:
+                    re = conf.mdsm.ProcessCommandForLPROData(re, stream, conf);
+                    if (re != "")
+                    {
+                        ProcessCommand(stream, conf, re);
+                    }
+                    sendCmd = "";
+                    break;
+                case CommandType.Nothing:
+                    sendCmd = error;
+
+                    break;
+                default:
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("In-Valid Command");
+                    Console.ResetColor();
+                    sendCmd = error;
+                    break;
+            }
+
+            if (sendCmd != "")
+            {
+                SendCommand(stream, sendCmd);
+            }
+        }
 
         public static string ReadCommand(NetworkStream stream)
         {

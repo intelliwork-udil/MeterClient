@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using MeterClient.Helper;
 
 namespace MeterClient.BL.MeterSamplingData
 {
@@ -160,21 +161,6 @@ namespace MeterClient.BL.MeterSamplingData
                 dataList = new List<InstanteneousDataSampling>();
             }
 
-            //string startDateString = "2023-01-01";
-            //string startTimeString = "08:00:00";
-            //string endDateString = "2023-01-05";
-            //string endTimeString = "17:00:00";
-
-            //DateTime startDate = DateTime.ParseExact(startDateString + " " + startTimeString, "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
-            //DateTime endDate = DateTime.ParseExact(endDateString + " " + endTimeString, "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
-
-            //// Assuming dataList is a List<InstanteneousDataSampling> containing your records
-            //List<InstanteneousDataSampling> filteredRecords = dataList
-            //    .Where(record =>
-            //        DateTime.ParseExact(record.date + " " + record.time, "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) >= startDate &&
-            //        DateTime.ParseExact(record.date + " " + record.time, "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) <= endDate)
-            //    .ToList();
-
 
             // Assuming dataList is a List<InstanteneousDataSampling> containing your records
             List<InstanteneousDataSampling> filteredRecords = dataList
@@ -192,90 +178,10 @@ namespace MeterClient.BL.MeterSamplingData
 
             DateTime _date = DateTime.ParseExact(date + " " + time, "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
 
-            string com = $"02 11 09 0C {DateTimeToHex(_date)} 00 FF 10 00 06 {ValueToHex(8, aggregate_active_pwr_pos)} 06 {ValueToHex(8, aggregate_active_pwr_neg)} 06 {ValueToHex(8, aggregate_active_pwr_abs)} 06 {ValueToHex(8, aggregate_reactive_pwr_pos)} 06 {ValueToHex(8, aggregate_reactive_pwr_neg)} 06 {ValueToHex(8, aggregate_reactive_pwr_abs)} 12 {ValueToHex(4, frequency)} 06 {ValueToHex(8, average_pf)} 12 {ValueToHex(4, voltage_phase_a)} 12 {ValueToHex(4, voltage_phase_b)} 12 {ValueToHex(4, voltage_phase_c)} 06 {ValueToHex(8, current_phase_a)} 06 {ValueToHex(8, current_phase_b)} 06 {ValueToHex(8, current_phase_c)} 09 02 {ValueToHex(4, signal_strength)} 11 {ValueToHex(2, current_tariff_register)}";
+            string com = $"02 11 09 0C {Converter.Instance.DateTimeToHex(_date, "02")} 00 FF 10 00 06 {Converter.Instance.ValueToHex(8, aggregate_active_pwr_pos)} 06 {Converter.Instance.ValueToHex(8, aggregate_active_pwr_neg)} 06 {Converter.Instance.ValueToHex(8, aggregate_active_pwr_abs)} 06 {Converter.Instance.ValueToHex(8, aggregate_reactive_pwr_pos)} 06 {Converter.Instance.ValueToHex(8, aggregate_reactive_pwr_neg)} 06 {Converter.Instance.ValueToHex(8, aggregate_reactive_pwr_abs)} 12 {Converter.Instance.ValueToHex(4, frequency)} 06 {Converter.Instance.ValueToHex(8, average_pf)} 12 {Converter.Instance.ValueToHex(4, voltage_phase_a)} 12 {Converter.Instance.ValueToHex(4, voltage_phase_b)} 12 {Converter.Instance.ValueToHex(4, voltage_phase_c)} 06 {Converter.Instance.ValueToHex(8, current_phase_a)} 06 {Converter.Instance.ValueToHex(8, current_phase_b)} 06 {Converter.Instance.ValueToHex(8, current_phase_c)} 09 02 {Converter.Instance.ValueToHex(4, signal_strength)} 11 {Converter.Instance.ValueToHex(2, current_tariff_register)}";
 
 
             return com;
-        }
-
-        public string ValueToHex(int length, double? value = null, int? intVal = null)
-        {
-            // Step 1: Convert the double to a byte array
-            byte[] bytes = null;
-            if (value != null)
-            {
-                bytes = BitConverter.GetBytes((double)value);
-            }
-            else
-            {
-                bytes = BitConverter.GetBytes((int)intVal);
-            }
-
-            // Step 2: Convert each byte to a hexadecimal string
-            string hexString = BitConverter.ToString(bytes).Replace("-", "");
-
-            hexString = ProcessString(hexString, length);
-
-            // Step 3: Insert a space after every 2 characters
-            string spacedHexString = InsertSpaces(hexString, 2);
-
-            return spacedHexString;
-        }
-
-        private string ProcessString(string inputStr, int length)
-        {
-            // Extract the last 4 characters
-            string lastFourChars = inputStr.Length >= length ? inputStr.Substring(inputStr.Length - length) : inputStr;
-
-            // Check if the length is less than length
-            if (inputStr.Length < length)
-            {
-                // Add remaining 0 on the start
-                return new string('0', length - inputStr.Length) + lastFourChars;
-            }
-            else
-            {
-                return lastFourChars;
-            }
-        }
-
-        public string InsertSpaces(string str, int interval)
-        {
-            return string.Join(" ", SplitByInterval(str, interval));
-        }
-
-        public string[] SplitByInterval(string str, int interval)
-        {
-            int length = (int)Math.Ceiling((double)str.Length / interval);
-            string[] result = new string[length];
-
-            for (int i = 0; i < length; i++)
-            {
-                int startIndex = i * interval;
-                int endIndex = Math.Min(startIndex + interval, str.Length);
-                result[i] = str.Substring(startIndex, endIndex - startIndex);
-            }
-
-            return result;
-        }
-
-        string DateTimeToHex(DateTime dateTime)
-        {
-
-            string hexYear = dateTime.Year.ToString("X4");
-
-            hexYear = hexYear.Substring(0, 2) + " " + hexYear.Substring(2);
-
-            string hexMonth = dateTime.Month.ToString("X2");
-            string hexDay = dateTime.Day.ToString("X2");
-            string hexHour = dateTime.Hour.ToString("X2");
-            string hexMinute = dateTime.Minute.ToString("X2");
-            string hexSecond = dateTime.Second.ToString("X2");
-
-            // Concatenate the hex components
-            string hexDateTimeString = hexYear + " " + hexMonth + " " + hexDay + " 02 " + hexHour + " " + hexMinute + " " + hexSecond;
-
-            return hexDateTimeString;
         }
     }
 }

@@ -22,6 +22,8 @@ namespace MeterClient
         DMDT,
         MDI,
         INST_DATA_READ,
+        BILL_DATA_READ,
+        LPRO_DATA_READ,
         Nothing
     }
     public static class CommandClassifier
@@ -43,6 +45,14 @@ namespace MeterClient
             else if (command.Contains("C0 01 81 00 07 01 00 63 01 01 FF 02 01 01 02 04 02 04 12 00 08 09 06 00 00 01 00 00 FF 0F 02 12 00 00 09 0C"))
             {
                 return CommandType.INST_DATA_READ;
+            }
+            else if (command.Contains("C0 01 81 00 07 01 00 63 01 00 FF 02 01 01 02 04 02 04 12 00 08 09 06 00 00 01 00 00 FF 0F 02 12 00 00 09 0C"))
+            {
+                return CommandType.LPRO_DATA_READ;
+            }
+            else if (command.Contains("C0 01 81 00 07 01 00 63 02 00 FF 02 01 01 02 04 02 04 12 00 08 09 06 00 00 01 00 00 FF 0F 02 12 00 00 09 0C"))
+            {
+                return CommandType.BILL_DATA_READ;
             }
             else if (command.Contains("C0 01 81 00 07 01 00 ") || command.Contains("C0 01 81 00 03 00 00 5E 5C 28 FF 02 00") || command.Contains("C0 01 81 00 01 00 00 5E 5C 2C FF 02 00"))
             {
