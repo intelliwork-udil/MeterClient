@@ -183,7 +183,7 @@ namespace MeterClient
 
             //conf.saveConfiguration("MeterConfigs/" + conf.msn + ".json");
 
-            IPAddress ipAddress = IPAddress.Parse("127.0.0.1");
+            IPAddress ipAddress = IPAddress.Parse(conf.ippo.primary_ip_address);
 
             var ipEndPoint = new IPEndPoint(ipAddress, conf.ippo.primary_port);
 
