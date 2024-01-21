@@ -222,6 +222,7 @@ namespace MeterClient.BL.MeterSamplingData
                     if (!fileExists)
                     {
                         csv.WriteHeader<BillingDataSampling>();
+                        csv.NextRecord();
                     }
 
                     // Write the new data record

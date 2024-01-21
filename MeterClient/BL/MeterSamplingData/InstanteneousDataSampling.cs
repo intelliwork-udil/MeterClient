@@ -83,6 +83,7 @@ namespace MeterClient.BL.MeterSamplingData
                     if (!fileExists)
                     {
                         csv.WriteHeader<InstanteneousDataSampling>();
+                        csv.NextRecord();
                     }
 
                     // Write the new data record

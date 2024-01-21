@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -11,6 +12,10 @@ namespace MeterClient
     public class MeterClientsGenerator
     {
         public static List<MeterConfiguration> clients = new List<MeterConfiguration>();
+
+        private string ipAddress = "115.42.79.151";
+        private int port = 32220;
+        private int communicationInterval = 24 * 60;
 
 
         public void generateClients()
@@ -66,6 +71,15 @@ namespace MeterClient
                             MeterConfiguration client = new MeterConfiguration();
                             client.msn = meterName;
                             client.password = meterPassword;
+
+
+                            client.ippo.primary_ip_address = ipAddress;
+                            client.ippo.primary_port = port;
+
+                            client.dmdt.communication_interval = communicationInterval;
+
+
+                            client.saveConfiguration("MeterConfigs/" + client.msn + ".json");
 
                             clients.Add(client);
                             count++;

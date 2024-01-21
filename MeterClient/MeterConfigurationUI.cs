@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
+using MeterClient.Helper;
 
 namespace MeterClient
 {
@@ -182,7 +183,7 @@ namespace MeterClient
 
             //conf.saveConfiguration("MeterConfigs/" + conf.msn + ".json");
 
-            IPAddress ipAddress = IPAddress.Parse(conf.ippo.primary_ip_address);
+            IPAddress ipAddress = IPAddress.Parse("127.0.0.1");
 
             var ipEndPoint = new IPEndPoint(ipAddress, conf.ippo.primary_port);
 
@@ -191,7 +192,6 @@ namespace MeterClient
             NetworkStream stream = client.GetStream();
 
             await MeterClientRunningStream(stream, conf, client);
-            //return stream;
         }
 
 
@@ -224,10 +224,10 @@ namespace MeterClient
 
 
 
-                SendCommand(stream, heartbeat);
+                SendCommand(stream, heartbeat, conf, true);
 
 
-                string re = ReadCommand(stream);
+                string re = ReadCommand(stream, conf, true);
 
                 if (re == "DA")
                 {
@@ -244,26 +244,26 @@ namespace MeterClient
                             do
                             {
 
-                                re = ReadCommand(stream);
+                                re = ReadCommand(stream, conf, false);
                                 if (MeterConfigurationUI.cancelled) return;
                                 if (String.IsNullOrEmpty(re))
                                 {
-                                    if (conf.dmdt.communication_type == 1)
-                                    {
-                                        client.Close();
-                                        Thread.Sleep(conf.dmdt.communication_interval * 1000);
-                                        goto startConnection;
-                                    }
-                                    else
-                                    {
-                                        Thread.Sleep(5000);
-                                    }
+                                    //if (conf.dmdt.communication_type == 1)
+                                    //{
+                                    //    client.Close();
+                                    //    Thread.Sleep(2 * 1000);
+                                    //    goto startConnection;
+                                    //}
+                                    //else
+                                    //{
+                                    //    Thread.Sleep(5000);
+                                    //}
                                 }
 
 
                                 if ((DateTime.Now - lastCommTime).TotalSeconds > 180)
                                 {
-                                    SendCommand(stream, heartbeat);
+                                    SendCommand(stream, heartbeat, conf, false);
                                 }
 
                             }
@@ -471,11 +471,11 @@ namespace MeterClient
 
             if (sendCmd != "")
             {
-                SendCommand(stream, sendCmd);
+                SendCommand(stream, sendCmd, conf, false);
             }
         }
 
-        public static string ReadCommand(NetworkStream stream)
+        public static string ReadCommand(NetworkStream stream, MeterConfiguration conf, bool needsLogg = false)
         {
             string re;
             try
@@ -496,6 +496,11 @@ namespace MeterClient
                     Console.WriteLine($"MDC: {re}");
                     Console.ResetColor();
                     lastCommTime = DateTime.Now;
+
+                    if (needsLogg)
+                    {
+                        Logger.Instance.Log(conf.msn, "Receive", re);
+                    }
                 }
 
                 return re;
@@ -506,7 +511,7 @@ namespace MeterClient
             }
         }
 
-        public static void SendCommand(NetworkStream stream, string commandStr)
+        public static void SendCommand(NetworkStream stream, string commandStr, MeterConfiguration conf, bool needsLogg = false)
         {
             try
             {
@@ -518,6 +523,12 @@ namespace MeterClient
                 .Select(s => Convert.ToByte(s, 16)).ToArray();
 
                 stream.Write(command, 0, command.Length);
+
+                if (needsLogg)
+                {
+                    Logger.Instance.Log(conf.msn, "Send", commandStr);
+                }
+
                 Console.ForegroundColor = ConsoleColor.Blue;
                 Console.WriteLine("Meter: " + commandStr);
                 Console.ResetColor();

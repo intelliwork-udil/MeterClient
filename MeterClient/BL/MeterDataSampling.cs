@@ -45,6 +45,8 @@ namespace MeterClient.BL
 
             Thread thread3 = new Thread(async () => await GenerateLPROSamplingInterval(conf));
             thread3.Start();
+
+
             //if (data_type == "INST")
             //{
 
@@ -75,7 +77,7 @@ namespace MeterClient.BL
                     inst.CleanupOldData(conf);
                 }
 
-                await Task.Delay(TimeSpan.FromMinutes(15.0));
+                await Task.Delay(TimeSpan.FromMinutes(1));
             }
         }
 
@@ -86,9 +88,12 @@ namespace MeterClient.BL
                 BillingDataSampling bill = new BillingDataSampling(conf);
                 bill.SaveDataToCsv(bill, conf);
 
+                if (DateTime.Now.TimeOfDay == TimeSpan.Zero)
+                {
+                    bill.CleanupOldData(conf);
+                }
 
-                await Task.Delay(TimeSpan.FromMinutes(1440.0));
-                bill.CleanupOldData(conf);
+                await Task.Delay(TimeSpan.FromMinutes(48.0));
             }
         }
 
@@ -104,7 +109,7 @@ namespace MeterClient.BL
                 {
                     bill.CleanupOldData(conf);
                 }
-                await Task.Delay(TimeSpan.FromMinutes(30.0));
+                await Task.Delay(TimeSpan.FromMinutes(1.0));
             }
         }
 
@@ -288,10 +293,10 @@ namespace MeterClient.BL
                     string finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + packet;
                     packet = finalCommand;
 
-                    MeterConfigurationUI.SendCommand(stream, packet);
+                    MeterConfigurationUI.SendCommand(stream, packet, conf, false);
 
                     // Wait for the response
-                    var response = MeterConfigurationUI.ReadCommand(stream);
+                    var response = MeterConfigurationUI.ReadCommand(stream, conf, false);
 
                     var response1 = response.Replace(" ", "");
 
@@ -422,10 +427,10 @@ namespace MeterClient.BL
                     string finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + packet;
                     packet = finalCommand;
 
-                    MeterConfigurationUI.SendCommand(stream, packet);
+                    MeterConfigurationUI.SendCommand(stream, packet, conf, false);
 
                     // Wait for the response
-                    var response = MeterConfigurationUI.ReadCommand(stream);
+                    var response = MeterConfigurationUI.ReadCommand(stream, conf, false);
 
                     var response1 = response.Replace(" ", "");
 
@@ -558,10 +563,10 @@ namespace MeterClient.BL
                     string finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + packet;
                     packet = finalCommand;
 
-                    MeterConfigurationUI.SendCommand(stream, packet);
+                    MeterConfigurationUI.SendCommand(stream, packet, conf, false);
 
                     // Wait for the response
-                    var response = MeterConfigurationUI.ReadCommand(stream);
+                    var response = MeterConfigurationUI.ReadCommand(stream, conf, false);
 
                     var response1 = response.Replace(" ", "");
 
