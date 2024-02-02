@@ -13,17 +13,17 @@ namespace MeterClient
     {
         public static List<MeterConfiguration> clients = new List<MeterConfiguration>();
 
-        private string ipAddress = "115.42.79.151";
-        private int port = 32220;
-        private int communicationInterval = 24 * 60;
+        public static string ipAddress = "";
+        public static int port = 0;
+        public static int communicationInterval = 0;
+
+        public static string fileName = "";
 
 
         public void generateClients()
         {
             Console.WriteLine("Enter number of clients to generate");
             int num = Convert.ToInt32(Console.ReadLine());
-
-            string fileName = "meter.xlsx";
 
             clients = new List<MeterConfiguration>();
 
@@ -73,15 +73,15 @@ namespace MeterClient
                             client.password = meterPassword;
 
 
-                            //client.ippo.primary_ip_address = ipAddress;
-                            //client.ippo.primary_port = port;
+                            client.ippo.primary_ip_address = ipAddress;
+                            client.ippo.primary_port = port;
 
-                            //client.dmdt.communication_interval = communicationInterval;
+                            client.dmdt.communication_interval = communicationInterval;
 
-                            //client.dmdt.communication_type = 1;
+                            client.dmdt.communication_type = 1;
 
 
-                            //client.saveConfiguration("MeterConfigs/" + client.msn + ".json");
+                            client.saveConfiguration("MeterConfigs/" + client.msn + ".json");
 
                             clients.Add(client);
                             count++;

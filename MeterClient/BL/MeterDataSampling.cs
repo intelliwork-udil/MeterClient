@@ -77,7 +77,7 @@ namespace MeterClient.BL
                     inst.CleanupOldData(conf);
                 }
 
-                await Task.Delay(TimeSpan.FromMinutes(1));
+                await Task.Delay(TimeSpan.FromMinutes(24));
             }
         }
 
@@ -109,7 +109,7 @@ namespace MeterClient.BL
                 {
                     bill.CleanupOldData(conf);
                 }
-                await Task.Delay(TimeSpan.FromMinutes(1.0));
+                await Task.Delay(TimeSpan.FromMinutes(30.0));
             }
         }
 

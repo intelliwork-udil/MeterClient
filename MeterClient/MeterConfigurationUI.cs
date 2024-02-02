@@ -49,6 +49,22 @@ namespace MeterClient
             Console.WriteLine("CANCEL command received! Cleaning up. please wait...");
         }
 
+        public void GenerateFolders(string folderName)
+        {
+            if (!Directory.Exists(folderName))
+            {
+                try
+                {
+                    Directory.CreateDirectory(folderName);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error creating folder {folderName}: {ex.Message}");
+                }
+            }
+        }
+
+
         public async Task Main()
         {
             // Main function
@@ -57,13 +73,13 @@ namespace MeterClient
 
 
 
-            meterConfiguration = meterConfiguration.loadConfiguration();
+            //meterConfiguration = meterConfiguration.loadConfiguration();
             //meterConfiguration.ippo.primary_ip_address = "127.0.0.1";
 
             //meterConfiguration.ippo.primary_port = 32220;
             Console.ForegroundColor = ConsoleColor.Green;
 
-            Console.WriteLine($"Meter {meterConfiguration.msn} connected on {meterConfiguration.ippo.primary_ip_address}:{meterConfiguration.ippo.primary_port}");
+            //Console.WriteLine($"Meter {meterConfiguration.msn} connected on {meterConfiguration.ippo.primary_ip_address}:{meterConfiguration.ippo.primary_port}");
             Console.ResetColor();
 
             while (true)
@@ -169,20 +185,6 @@ namespace MeterClient
 
             await conf.mdsm.GenerateSamplingData(conf);
 
-            //Thread thread = new Thread(() => conf.mdsm.GenerateSamplingData(conf));
-            //thread.Start();
-
-
-            //conf.msn = GenerateRandom10DigitNumber();
-            //conf.password = GenerateRandom10DigitNumber();
-
-
-
-            //conf.ippo.primary_ip_address = meterConfiguration.ippo.primary_ip_address;
-            //conf.ippo.primary_port = meterConfiguration.ippo.primary_port;
-
-            //conf.saveConfiguration("MeterConfigs/" + conf.msn + ".json");
-
             IPAddress ipAddress = IPAddress.Parse(conf.ippo.primary_ip_address);
 
             var ipEndPoint = new IPEndPoint(ipAddress, conf.ippo.primary_port);
@@ -204,7 +206,7 @@ namespace MeterClient
             do
             {
 
-            startConnection:
+                //startConnection:
 
 
 
@@ -224,10 +226,10 @@ namespace MeterClient
 
 
 
-                SendCommand(stream, heartbeat, conf, true);
+                SendCommand(stream, heartbeat, conf, false);
 
 
-                string re = ReadCommand(stream, conf, true);
+                string re = ReadCommand(stream, conf, false);
 
                 if (re == "DA")
                 {
@@ -248,16 +250,17 @@ namespace MeterClient
                                 if (MeterConfigurationUI.cancelled) return;
                                 if (String.IsNullOrEmpty(re))
                                 {
-                                    //if (conf.dmdt.communication_type == 1)
-                                    //{
-                                    //    client.Close();
-                                    //    Thread.Sleep(2 * 1000);
-                                    //    goto startConnection;
-                                    //}
-                                    //else
-                                    //{
-                                    //    Thread.Sleep(5000);
-                                    //}
+                                    if (conf.dmdt.communication_type == 1)
+                                    {
+                                        client.Close();
+                                        return;
+                                        //Thread.Sleep(2 * 1000);
+                                        //goto startConnection;
+                                    }
+                                    else
+                                    {
+                                        Thread.Sleep(5000);
+                                    }
                                 }
 
 
@@ -434,6 +437,7 @@ namespace MeterClient
                     }
                     break;
                 case CommandType.INST_DATA_READ:
+                    Logger.Instance.Log(conf.msn, "INST Data Read", "");
                     re = conf.mdsm.ProcessCommandForInstantaneousData(re, stream, conf);
                     if (re != "")
                     {
@@ -482,7 +486,7 @@ namespace MeterClient
             {
                 var data = new byte[1024];
 
-                stream.ReadTimeout = 20000;
+                stream.ReadTimeout = 200000;
 
                 int count = stream.Read(data, 0, data.Length);
 
