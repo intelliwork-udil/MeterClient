@@ -24,7 +24,12 @@ namespace MeterClient
         INST_DATA_READ,
         BILL_DATA_READ,
         LPRO_DATA_READ,
-        Nothing
+        Nothing,
+
+
+        // hard coded
+        MSIM_READ,
+        IMEI_READ
     }
     public static class CommandClassifier
     {
@@ -87,10 +92,6 @@ namespace MeterClient
                 //5,6,7,
                 return CommandType.SANCTIONED_LOAD_CONTROL;
             }
-            else if (command.Contains(""))
-            {
-                return CommandType.LOAD_SHEDDING_SCHEDULLING;
-            }
             else if (command.Contains("C0 01 81 00 16 00 00 0F 00 00 FF 04 00"))
             {
                 return CommandType.MDI;
@@ -98,6 +99,14 @@ namespace MeterClient
             else if (command.Contains("C0 01 81 00 01 00 00"))
             {
                 return CommandType.DMDT;
+            }
+            else if (command.Contains("C0 01 81 00 01 00 00 60 01 05 FF 02 00"))
+            {
+                return CommandType.MSIM_READ;
+            }
+            else if (command.Contains("C0 01 81 00 01 00 00 60 01 06 FF 02 00"))
+            {
+                return CommandType.IMEI_READ;
             }
             else
             {

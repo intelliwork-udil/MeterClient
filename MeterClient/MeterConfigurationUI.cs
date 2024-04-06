@@ -32,12 +32,22 @@ namespace MeterClient
         public MeterConfigurationUI()
         {
 
-            menu.Add("1. Setup Meter Configuration.");
-            menu.Add("2. Run Meter Client");
-            menu.Add("3. Exit");
+            //menu.Add("1. Setup Meter Configuration.");
+            menu.Add("1. Run Meter Client");
+            //menu.Add("3. Exit");
 
             //meterConfiguration = MeterConfiguration.Instance;
             meterConfiguration = new MeterConfiguration();
+
+
+
+            GenerateFolders("MeterConfigs");
+            GenerateFolders("MeterSamplingData");
+
+            // Sub folders
+            GenerateFolders(Path.Combine("MeterSamplingData", "BillingData"));
+            GenerateFolders(Path.Combine("MeterSamplingData", "InstanteneousData"));
+            GenerateFolders(Path.Combine("MeterSamplingData", "LPROData"));
 
 
         }
@@ -91,11 +101,12 @@ namespace MeterClient
 
                 string input = Console.ReadLine();
 
+                //if (input == "1")
+                //{
+                //    SetupMeter();
+                //}
+                //else
                 if (input == "1")
-                {
-                    SetupMeter();
-                }
-                else if (input == "2")
                 {
                     await RunMeterClient();
                     //SimulateMeterClientRunningStream();
@@ -103,10 +114,10 @@ namespace MeterClient
                     MeterConfigurationUI.cancelled = false;
 
                 }
-                else if (input == "3")
-                {
-                    break;
-                }
+                //else if (input == "3")
+                //{
+                //    break;
+                //}
                 else
                 {
                     Console.WriteLine("Invalid Input");
@@ -171,9 +182,19 @@ namespace MeterClient
 
             foreach (var client in MeterClientsGenerator.clients)
             {
+                CsvThreadLoggerUtility.Log(client.msn, "Client Initialized");
                 Thread thread = new Thread(() => RunSingleClient(client));
                 thread.Start();
             }
+
+            //new MeterClientsGenerator().generateClients();
+
+            //foreach (var client in MeterClientsGenerator.clients)
+            //{
+            //    CsvThreadLoggerUtility.Log(client.msn, "Client Initialized");
+            //    await Task.Run(() => RunSingleClient(client));
+            //}
+
 
 
         }
@@ -181,25 +202,34 @@ namespace MeterClient
 
         private async Task RunSingleClient(MeterConfiguration conf)
         {
-            conf = conf.loadConfiguration("MeterConfigs/" + conf.msn + ".json");
+            try
+            {
+                CsvThreadLoggerUtility.Log(conf.msn, "Thread Started");
 
-            await conf.mdsm.GenerateSamplingData(conf);
+                conf = conf.loadConfiguration("MeterConfigs/" + conf.msn + ".json");
 
-            IPAddress ipAddress = IPAddress.Parse(conf.ippo.primary_ip_address);
+                await conf.mdsm.GenerateSamplingData(conf);
 
-            var ipEndPoint = new IPEndPoint(ipAddress, conf.ippo.primary_port);
+                IPAddress ipAddress = IPAddress.Parse(conf.ippo.primary_ip_address);
 
-            TcpClient client = new();
-            await client.ConnectAsync(ipEndPoint);
-            NetworkStream stream = client.GetStream();
+                var ipEndPoint = new IPEndPoint(ipAddress, conf.ippo.primary_port);
 
-            await MeterClientRunningStream(stream, conf, client);
+                TcpClient client = new();
+                await client.ConnectAsync(ipEndPoint);
+                NetworkStream stream = client.GetStream();
+
+                await MeterClientRunningStream(stream, conf, client);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message.ToString());
+            }
         }
 
 
         private async Task MeterClientRunningStream(NetworkStream stream, MeterConfiguration conf, TcpClient client)
         {
-
+            bool isLogged = false;
 
 
 
@@ -224,12 +254,21 @@ namespace MeterClient
                     stream = client.GetStream();
                 }
 
+                SendCommand(stream, heartbeat, conf, true);
+                if (isLogged == false)
+                {
+                    CsvThreadLoggerUtility.Log1(conf.msn, heartbeat);
+                }
 
 
-                SendCommand(stream, heartbeat, conf, false);
+                string re = ReadCommand(stream, conf, true);
 
+                if (isLogged == false)
+                {
+                    CsvThreadLoggerUtility.Log1(conf.msn, re);
+                }
+                isLogged = true;
 
-                string re = ReadCommand(stream, conf, false);
 
                 if (re == "DA")
                 {
@@ -250,17 +289,17 @@ namespace MeterClient
                                 if (MeterConfigurationUI.cancelled) return;
                                 if (String.IsNullOrEmpty(re))
                                 {
-                                    if (conf.dmdt.communication_type == 1)
-                                    {
-                                        client.Close();
-                                        return;
-                                        //Thread.Sleep(2 * 1000);
-                                        //goto startConnection;
-                                    }
-                                    else
-                                    {
-                                        Thread.Sleep(5000);
-                                    }
+                                    //if (conf.dmdt.communication_type == 1)
+                                    //{
+                                    //    client.Close();
+                                    //    return;
+                                    //    //Thread.Sleep(2 * 1000);
+                                    //    //goto startConnection;
+                                    //}
+                                    //else
+                                    //{
+                                    //    Thread.Sleep(5000);
+                                    //}
                                 }
 
 
@@ -284,7 +323,7 @@ namespace MeterClient
                 }
                 else
                 {
-
+                    ProcessCommand(stream, conf, re);
 
 
                 }
@@ -298,10 +337,27 @@ namespace MeterClient
         {
             CommandType commandType = CommandClassifier.commandType(re);
 
+
+            Console.WriteLine($"Command Received for Meter: {conf.msn} - {commandType.ToString()}");
+
             string sendCmd = "";
 
             switch (commandType)
             {
+                case CommandType.MSIM_READ:
+                    sendCmd = "C4 01 81 00 09 14 38 39 39 32 33 30 30 30 30 30 34 35 33 31 34 31 39 37 37 46";
+                    var cmdArr = sendCmd.Split(' ');
+                    int count = cmdArr.Length;
+                    string finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + sendCmd;
+                    sendCmd = finalCommand;
+                    break;
+                case CommandType.IMEI_READ:
+                    sendCmd = "C4 01 81 00 09 0F 38 36 31 33 36 35 30 34 33 31 32 38 34 31 37";
+                    cmdArr = sendCmd.Split(' ');
+                    count = cmdArr.Length;
+                    finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + sendCmd;
+                    sendCmd = finalCommand;
+                    break;
                 case CommandType.AARQ:
                     if (PasswordChecker(re, conf))
                     {
@@ -321,9 +377,9 @@ namespace MeterClient
                 case CommandType.DeviceCreation:
                     conf.dmdt.PerformCommand(re);
                     sendCmd = "C5 01 81 00";
-                    var cmdArr = sendCmd.Split(' ');
-                    int count = cmdArr.Length;
-                    string finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + sendCmd;
+                    cmdArr = sendCmd.Split(' ');
+                    count = cmdArr.Length;
+                    finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + sendCmd;
                     sendCmd = finalCommand;
                     break;
                 case CommandType.DMDT:
@@ -477,11 +533,15 @@ namespace MeterClient
             {
                 SendCommand(stream, sendCmd, conf, false);
             }
+            else
+            {
+                SendCommand(stream, error, conf, false);
+            }
         }
 
         public static string ReadCommand(NetworkStream stream, MeterConfiguration conf, bool needsLogg = false)
         {
-            string re;
+            string re = "";
             try
             {
                 var data = new byte[1024];
@@ -497,22 +557,24 @@ namespace MeterClient
                 if (count != 0)
                 {
                     Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine($"MDC: {re}");
+                    Console.WriteLine($"MDC: For meter: {conf.msn} {re}");
                     Console.ResetColor();
                     lastCommTime = DateTime.Now;
 
-                    if (needsLogg)
-                    {
-                        Logger.Instance.Log(conf.msn, "Receive", re);
-                    }
+                    //if (needsLogg)
+                    //{
+                    //    Logger.Instance.Log(conf.msn, "Receive", re);
+                    //}
                 }
 
-                return re;
             }
             catch (Exception ex)
             {
-                return null;
+                Console.WriteLine(ex.Message);
+                Logger.Instance.Log(conf.msn, "Error", ex.Message);
+                return re;
             }
+            return re;
         }
 
         public static void SendCommand(NetworkStream stream, string commandStr, MeterConfiguration conf, bool needsLogg = false)
@@ -534,7 +596,7 @@ namespace MeterClient
                 }
 
                 Console.ForegroundColor = ConsoleColor.Blue;
-                Console.WriteLine("Meter: " + commandStr);
+                Console.WriteLine($"Meter {conf.msn}: " + commandStr);
                 Console.ResetColor();
             }
             catch (Exception ex)

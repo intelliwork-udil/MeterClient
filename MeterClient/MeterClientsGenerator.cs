@@ -1,5 +1,8 @@
 ﻿using ExcelDataReader;
+using MeterClient.Helper;
+using Microsoft.Extensions.Configuration;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -19,15 +22,24 @@ namespace MeterClient
 
         public static string fileName = "";
 
+        public static void SetupGlobalConfiguration(IConfiguration configuration)
+        {
+            MeterClientsGenerator.ipAddress = configuration["MDC_Connections:ipAddress"];
+            MeterClientsGenerator.port = Convert.ToInt32(configuration["MDC_Connections:port"]);
+            MeterClientsGenerator.communicationInterval = Convert.ToInt32(configuration["MDC_Connections:communicationInterval"]) * 60;
+            MeterClientsGenerator.fileName = configuration["MDC_Connections:filePath"];
+        }
+
+
 
         public void generateClients()
         {
-            Console.WriteLine("Enter number of clients to generate");
-            int num = Convert.ToInt32(Console.ReadLine());
 
-            clients = new List<MeterConfiguration>();
+            var _clients = new List<MeterConfiguration>();
 
-            int count = 0;
+            //int count = 0;
+
+            Console.WriteLine("Wait Loading Meters");
 
             if (File.Exists(fileName))
             {
@@ -55,9 +67,17 @@ namespace MeterClient
                         // Assuming there is only one DataTable in the DataSet
                         DataTable dataTable = result.Tables[0];
 
+                        int totalRows = dataTable.Rows.Count - 1;
+
                         // Display the data
-                        foreach (DataRow row in dataTable.Rows)
+                        for (int i = 1; i <= totalRows; i++)
                         {
+                            int progress = (i * 100) / totalRows;
+
+                            // Update progress bar
+                            ProgressBarHelper.DrawTextProgressBar(progress, i, 100);
+
+                            DataRow row = dataTable.Rows[i];
                             // Assuming First Row is the Header Row
                             if (row == dataTable.Rows[0])
                             {
@@ -83,13 +103,13 @@ namespace MeterClient
 
                             client.saveConfiguration("MeterConfigs/" + client.msn + ".json");
 
-                            clients.Add(client);
-                            count++;
+                            _clients.Add(client);
+                            //count++;
 
-                            if (count == num)
-                            {
-                                break;
-                            }
+                            //if (count == num)
+                            //{
+                            //    break;
+                            //}
                         }
                     }
                 }
@@ -99,6 +119,153 @@ namespace MeterClient
                 Console.WriteLine($"File not found: {fileName}");
             }
 
+            Console.WriteLine("");
+
+            Console.WriteLine($"{_clients.Count} Meters Loaded");
+
+            int maxLength = _clients.Max(obj => obj.msn.Length);
+
+
+            // Initialize a substring with the maximum length
+            char[] substring = new char[maxLength];
+            int startIndex = 0;
+            // Iterate through each character index
+            for (int i = 0; i < maxLength; i++)
+            {
+                char? currentChar = null;
+
+                // Check each msn value for the character at index i
+                foreach (var obj in _clients)
+                {
+                    if (i < obj.msn.Length)
+                    {
+                        if (currentChar == null)
+                        {
+                            currentChar = obj.msn[i];
+                        }
+                        else if (currentChar != obj.msn[i])
+                        {
+                            currentChar = null;
+                            break;
+                        }
+                    }
+                }
+
+                // If the character is repeating at index i, add it to the substring
+                if (currentChar.HasValue)
+                {
+                    substring[i] = currentChar.Value;
+
+                    startIndex = i + 1;
+                }
+                else
+                {
+                    break; // Exit the loop if no character is repeating at index i
+                }
+            }
+
+            // Convert the char array to a string and remove any trailing null characters
+            string commandSubstring = new string(substring).TrimEnd('\0');
+
+
+            var commonStr = commandSubstring.Length;
+
+            string firstVal = _clients.First().msn.Substring(startIndex);
+            string lastVal = _clients.Last().msn.Substring(startIndex);
+
+            Console.WriteLine("Enter number of clients to Run");
+            Console.WriteLine($"Starting: {firstVal}, Ending: {lastVal}");
+
+
+            int firstMSN = -1;
+
+            while (firstMSN < Convert.ToInt32(firstVal))
+            {
+                try
+                {
+                    Console.WriteLine($"Give First Value");
+                    firstMSN = Convert.ToInt32(Console.ReadLine());
+                }
+                catch
+                {
+                    Console.WriteLine("Enter Valid Value");
+                }
+
+            }
+
+
+            int lastMSN = -2;
+
+            while (lastMSN <= firstMSN)
+            {
+                try
+                {
+                    Console.WriteLine($"Give Last Value");
+                    lastMSN = Convert.ToInt32(Console.ReadLine());
+
+                    if (lastMSN <= Convert.ToInt32(lastVal) && lastMSN >= firstMSN)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Enter Valid Value");
+                        lastMSN = -1;
+                    }
+                }
+                catch
+                {
+                    lastMSN = -1;
+                    Console.WriteLine("Enter Valid Value");
+                }
+            }
+            string FMSn = "";
+
+            if ((commandSubstring + firstMSN.ToString()).Length < 10)
+            {
+                int len = 10 - (commandSubstring + firstMSN.ToString()).Length;
+                string str = "";
+                for (int j = 0; j < len; j++)
+                {
+                    str += "0";
+                }
+
+
+                FMSn = commandSubstring + str + firstMSN.ToString();
+            }
+            else
+            {
+                FMSn = commandSubstring + firstMSN.ToString();
+            }
+
+
+            string LMSn = "";
+
+            if ((commandSubstring + lastMSN.ToString()).Length < 10)
+            {
+                int len = 10 - (commandSubstring + lastMSN.ToString()).Length;
+                string str = "";
+                for (int j = 0; j < len; j++)
+                {
+                    str += "0";
+                }
+
+
+                LMSn = commandSubstring + str + lastMSN.ToString();
+            }
+            else
+            {
+                LMSn = commandSubstring + lastMSN.ToString();
+            }
+
+            var filteredList = _clients.Where(obj => string.Compare(obj.msn, FMSn) >= 0 && string.Compare(obj.msn, LMSn) <= 0).ToList();
+
+
+            //clients = new List<MeterConfiguration>();
+            //clients.Add(_clients[0]);
+
+
+            clients = filteredList;
 
         }
     }

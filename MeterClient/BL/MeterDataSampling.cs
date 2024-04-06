@@ -46,24 +46,17 @@ namespace MeterClient.BL
             Thread thread3 = new Thread(async () => await GenerateLPROSamplingInterval(conf));
             thread3.Start();
 
-
-            //if (data_type == "INST")
-            //{
-
-            //    //sampling_interval = 15 minutes;
-            //    GenerateINSTSamplingInterval(conf);
-            //}
-            //else if (data_type == "LPRO")
-            //{
-            //    //sampling_interval = 30 minutes;
-            //    GenerateBillingSamplingInterval(conf);
-            //}
-            //else if (data_type == "BILL")
-            //{
-            //    //sampling_interval = 1440 minutes;
-            //    GenerateLPROSamplingInterval(conf);
-            //}
         }
+
+        //public async Task GenerateSamplingData(MeterConfiguration conf)
+        //{
+        //    var task1 = Task.Run(() => GenerateINSTSamplingInterval(conf));
+        //    var task2 = Task.Run(() => GenerateBillingSamplingInterval(conf));
+        //    var task3 = Task.Run(() => GenerateLPROSamplingInterval(conf));
+
+        //    await Task.WhenAll(task1, task2, task3);
+        //}
+
 
         private async Task GenerateINSTSamplingInterval(MeterConfiguration conf)
         {
@@ -455,134 +448,141 @@ namespace MeterClient.BL
         public string ProcessCommandForLPROData(string re, NetworkStream stream, MeterConfiguration conf)
         {
             string command = "";
-            if (re.Contains("C0 01 81 00 07 01 00 63 01 00 FF 02 01 01 02 04 02 04 12 00 08 09 06 00 00 01 00 00 FF 0F 02 12 00 00 09 0C"))
+            try
             {
-
-                var data = re.Split().Select(x => Convert.ToByte(x, 16)).ToArray();
-
-
-                int a1 = data[44];
-                int a2 = data[45];
-                int a3 = data[46];
-                int a4 = data[47];
-
-
-                int year = Converter.Instance.ConvertToYear(a1, a2);
-                int month = a3;
-                int day = a4;
-
-                int hr = data[49];
-                int min = data[50];
-                int sec = data[51];
-
-                var startTime = new DateTime(year, month, day, hr, min, sec);
-
-
-                a1 = data[58];
-                a2 = data[59];
-                a3 = data[60];
-                a4 = data[61];
-
-
-                year = Converter.Instance.ConvertToYear(a1, a2);
-                month = a3;
-                day = a4;
-
-                hr = data[63];
-                min = data[64];
-                sec = data[65];
-
-                var endTime = new DateTime(year, month, day, hr, min, sec);
-
-
-                // Get Data List
-                var dataList = LproDataSampling.getData(conf, startTime, endTime);
-
-
-                int numBlocks = 0;
-                int maxDataPerBlock = 0;
-
-                string sendingCommand = "";
-
-
-
-                foreach (var d in dataList)
-                {
-                    if (d == dataList.LastOrDefault())
-                    {
-                        sendingCommand += d.DataInCommand(conf);
-                    }
-                    else
-                    {
-                        sendingCommand += d.DataInCommand(conf) + " ";
-                    }
-                }
-
-                sendingCommand = sendingCommand.Replace(" ", "");
-
-                // Send Data to MDC
-                //string packetData = sendingCommand.Substring(i, Math.Min(packetSize, sendingCommand.Length - i));
-
-                //int maxBufferSize = stream.Socket.SendBufferSize;
-
-                int packetSize = 255;
-                int headerSize = 8; // Assuming that every packet would be max 255 or FF size long
-
-                packetSize = packetSize - headerSize;
-
-                packetSize = packetSize * 2; // Since we are sending hex data and every data would be of length 2
-
-                int packetNumber = 1;
-
-                //int packetSize = Math.Min(maxBufferSize, sendingCommand.Length);
-
-                for (int i = 0; i < sendingCommand.Length; i += packetSize)
+                if (re.Contains("C0 01 81 00 07 01 00 63 01 00 FF 02 01 01 02 04 02 04 12 00 08 09 06 00 00 01 00 00 FF 0F 02 12 00 00 09 0C"))
                 {
 
-                    //sendingCommand = "C40281000000000200820118" + sendingCommand;
-
-                    string packetData = sendingCommand.Substring(i, Math.Min(packetSize - 24, sendingCommand.Length - i - 24));
-
-                    //string packetHeader = "C4028100000000" + Convert.ToString(packetNumber, 16).PadLeft(2, '0') + "00820118";
-                    string packetHeader = $"C4 02 81 {Convert.ToString(packetNumber - 1, 16).PadLeft(2, '0')} {Convert.ToString(packetNumber, 16).PadLeft(8, '0')} 00 82 01 18 01 02";
-
-                    packetData = packetHeader + packetData;
-
-                    // Determine if this is the last packet
-                    bool isLastPacket = (i + packetSize) >= sendingCommand.Length;
-
-                    // Construct the packet with the appropriate prefix and postfix
-                    string packet = ConstructLPROPacket(packetData, isLastPacket, packetHeader, packetNumber);
+                    var data = re.Split().Select(x => Convert.ToByte(x, 16)).ToArray();
 
 
+                    int a1 = data[44];
+                    int a2 = data[45];
+                    int a3 = data[46];
+                    int a4 = data[47];
 
-                    packet = MeterConfigurationUI.AddSpaceEveryNCharacters(packet, 2);
 
-                    var cmdArr = packet.Split(' ');
-                    int count = cmdArr.Length;
-                    string finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + packet;
-                    packet = finalCommand;
+                    int year = Converter.Instance.ConvertToYear(a1, a2);
+                    int month = a3;
+                    int day = a4;
 
-                    MeterConfigurationUI.SendCommand(stream, packet, conf, false);
+                    int hr = data[49];
+                    int min = data[50];
+                    int sec = data[51];
 
-                    // Wait for the response
-                    var response = MeterConfigurationUI.ReadCommand(stream, conf, false);
+                    var startTime = new DateTime(year, month, day, hr, min, sec);
 
-                    var response1 = response.Replace(" ", "");
 
-                    if (!response1.Contains("C00281000000"))
+                    a1 = data[58];
+                    a2 = data[59];
+                    a3 = data[60];
+                    a4 = data[61];
+
+
+                    year = Converter.Instance.ConvertToYear(a1, a2);
+                    month = a3;
+                    day = a4;
+
+                    hr = data[63];
+                    min = data[64];
+                    sec = data[65];
+
+                    var endTime = new DateTime(year, month, day, hr, min, sec);
+
+
+                    // Get Data List
+                    var dataList = LproDataSampling.getData(conf, startTime, endTime);
+
+
+                    int numBlocks = 0;
+                    int maxDataPerBlock = 0;
+
+                    string sendingCommand = "";
+
+
+
+                    foreach (var d in dataList)
                     {
-                        command = response;
-                        break;
+                        if (d == dataList.LastOrDefault())
+                        {
+                            sendingCommand += d.DataInCommand(conf);
+                        }
+                        else
+                        {
+                            sendingCommand += d.DataInCommand(conf) + " ";
+                        }
                     }
-                    response1 = "";
-                    response = "";
-                    packetNumber++;
-                }
 
+                    sendingCommand = sendingCommand.Replace(" ", "");
+
+                    // Send Data to MDC
+                    //string packetData = sendingCommand.Substring(i, Math.Min(packetSize, sendingCommand.Length - i));
+
+                    //int maxBufferSize = stream.Socket.SendBufferSize;
+
+                    int packetSize = 255;
+                    int headerSize = 8; // Assuming that every packet would be max 255 or FF size long
+
+                    packetSize = packetSize - headerSize;
+
+                    packetSize = packetSize * 2; // Since we are sending hex data and every data would be of length 2
+
+                    int packetNumber = 1;
+
+                    //int packetSize = Math.Min(maxBufferSize, sendingCommand.Length);
+
+                    for (int i = 0; i < sendingCommand.Length; i += packetSize)
+                    {
+
+                        //sendingCommand = "C40281000000000200820118" + sendingCommand;
+
+                        string packetData = sendingCommand.Substring(i, Math.Min(packetSize - 24, sendingCommand.Length - i - 24));
+
+                        //string packetHeader = "C4028100000000" + Convert.ToString(packetNumber, 16).PadLeft(2, '0') + "00820118";
+                        string packetHeader = $"C4 02 81 {Convert.ToString(packetNumber - 1, 16).PadLeft(2, '0')} {Convert.ToString(packetNumber, 16).PadLeft(8, '0')} 00 82 01 18 01 02";
+
+                        packetData = packetHeader + packetData;
+
+                        // Determine if this is the last packet
+                        bool isLastPacket = (i + packetSize) >= sendingCommand.Length;
+
+                        // Construct the packet with the appropriate prefix and postfix
+                        string packet = ConstructLPROPacket(packetData, isLastPacket, packetHeader, packetNumber);
+
+
+
+                        packet = MeterConfigurationUI.AddSpaceEveryNCharacters(packet, 2);
+
+                        var cmdArr = packet.Split(' ');
+                        int count = cmdArr.Length;
+                        string finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + packet;
+                        packet = finalCommand;
+
+                        MeterConfigurationUI.SendCommand(stream, packet, conf, false);
+
+                        // Wait for the response
+                        var response = MeterConfigurationUI.ReadCommand(stream, conf, false);
+
+                        var response1 = response.Replace(" ", "");
+
+                        if (!response1.Contains("C00281000000"))
+                        {
+                            command = response;
+                            break;
+                        }
+                        response1 = "";
+                        response = "";
+                        packetNumber++;
+                    }
+
+
+                }
 
             }
-
+            catch (Exception)
+            {
+                command = "";
+            }
 
             return command;
         }
