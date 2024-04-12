@@ -39,6 +39,14 @@ namespace MeterClient
             {
                 return CommandType.Nothing;
             }
+            else if (command.Contains("00 01 00 30 00 01 00 0D C0 01 81 00 01 00 00 60 01 05 FF 02 00"))
+            {
+                return CommandType.MSIM_READ;
+            }
+            else if (command.Contains("00 01 00 30 00 01 00 0D C0 01 81 00 01 00 00 60 01 06 FF 02 00"))
+            {
+                return CommandType.IMEI_READ;
+            }
             else if (command.Contains("00 01 00 30 00 01 00 38 60 36 A1 09 06 07 60 85 74 05 08 01 01 8A 02 07 80 8B 07 60 85 74 05 08 02 01 AC 0A 80 08") && command.Contains("BE 10 04 0E 01 00 00 00 06 5F 1F 04 00 00 7E 1F 04 B0"))
             {
                 return CommandType.AARQ;
@@ -99,14 +107,6 @@ namespace MeterClient
             else if (command.Contains("C0 01 81 00 01 00 00"))
             {
                 return CommandType.DMDT;
-            }
-            else if (command.Contains("C0 01 81 00 01 00 00 60 01 05 FF 02 00"))
-            {
-                return CommandType.MSIM_READ;
-            }
-            else if (command.Contains("C0 01 81 00 01 00 00 60 01 06 FF 02 00"))
-            {
-                return CommandType.IMEI_READ;
             }
             else
             {

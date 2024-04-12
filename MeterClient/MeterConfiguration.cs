@@ -50,19 +50,6 @@ namespace MeterClient
             wsim = new WakeUpSimNumber();
         }
 
-        //public static MeterConfiguration Instance
-        //{
-        //    get
-        //    {
-        //        if (instance == null)
-        //        {
-        //            instance = new MeterConfiguration("3098091234", "12345678");
-        //        }
-        //        return instance;
-        //    }
-        //}
-
-
         public AuxRelayOperations auxr { get; set; }
         public ActivateMeterOpticalPort oppo { get; set; }
         public DeviceMetaData dmdt { get; set; }

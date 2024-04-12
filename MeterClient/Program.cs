@@ -12,7 +12,7 @@ MeterClientsGenerator.SetupGlobalConfiguration(configuration);
 MeterConfigurationUI meterConfigurationUI = new MeterConfigurationUI();
 
 
-
+MeterConfigurationUI.NeedsConnecting = Convert.ToInt32(configuration["MDC_Connections:NeedsConnecting"]);
 
 
 await meterConfigurationUI.Main();

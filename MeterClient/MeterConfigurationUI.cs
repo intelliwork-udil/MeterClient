@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using MeterClient.Helper;
+using System.Threading;
+using System.Diagnostics;
 
 namespace MeterClient
 {
@@ -25,9 +27,12 @@ namespace MeterClient
         public int timeout { get; set; } = 10000;
 
         private string aare = "00 01 00 01 00 30 00 2B 61 29 A1 09 06 07 60 85 74 05 08 01 01 A2 03 02 01 00 A3 05 A1 03 02 01 00 BE 10 04 0E 08 00 06 5F 1F 04 00 00 1C 1F 01 2C 00 07";
-        private string error = "00 01 00 01 00 30 00 03 D8 01 01";
+        private static string error = "00 01 00 01 00 30 00 03 D8 01 01";
 
-        private string initialCommand = "00 01 00 30 00 01 00";
+        private string initialCommand = "00 01 00 01 00 30 00";
+
+
+        public static int NeedsConnecting = 1;
 
         public MeterConfigurationUI()
         {
@@ -82,14 +87,6 @@ namespace MeterClient
             Console.CancelKeyPress += new ConsoleCancelEventHandler(myHandler);
 
 
-
-            //meterConfiguration = meterConfiguration.loadConfiguration();
-            //meterConfiguration.ippo.primary_ip_address = "127.0.0.1";
-
-            //meterConfiguration.ippo.primary_port = 32220;
-            Console.ForegroundColor = ConsoleColor.Green;
-
-            //Console.WriteLine($"Meter {meterConfiguration.msn} connected on {meterConfiguration.ippo.primary_ip_address}:{meterConfiguration.ippo.primary_port}");
             Console.ResetColor();
 
             while (true)
@@ -150,58 +147,59 @@ namespace MeterClient
 
 
 
+        private static SemaphoreSlim semaphore = new SemaphoreSlim(0);
 
+        int clientsInitialized = 0;
 
         public async Task RunMeterClient()
         {
 
-            //IPAddress ipAddress = IPAddress.Parse(meterConfiguration.ippo.primary_ip_address);
-
-            //var ipEndPoint = new IPEndPoint(ipAddress, meterConfiguration.ippo.primary_port);
-
-            //client = new();
-            //await client.ConnectAsync(ipEndPoint);
-            //await using NetworkStream stream = client.GetStream();
+            new MeterClientsGenerator().generateClients();
 
 
-            //Console.WriteLine("How many clients do you want to run?");
-            //int clientCount = Convert.ToInt32(Console.ReadLine());
+            int clientsCount = MeterClientsGenerator.clients.Count;
 
-            //List<MeterConfiguration> clients = new List<MeterConfiguration>();
-            //clients.Add(conf);
+            //Task[] tasks = new Task[clientsCount];
 
-            //for (int i = 0; i < clientCount; i++)
+            //for (int i = 0; i < clientsCount; i++)
             //{
-            //    Thread thread = new Thread(() => RunSingleClient());
-            //    thread.Start();
+            //    int progress = (i * 100) / clientsCount;
 
-            //    //await RunSingleClient();
+            //    tasks[i] = Task.Run(() => RunSingleClient(MeterClientsGenerator.clients[i]));
+
+            //    clientsInitialized++;
+            //    ProgressBarHelper.DrawTextProgressBar(progress, i, clientsCount);
             //}
 
-            new MeterClientsGenerator().generateClients();
+            //Console.WriteLine("All Tasks Loaded! Press any key to Continue");
+            //Console.ReadKey();
+
+            //semaphore.Release(clientsCount);
+
+            //await Task.WhenAll(tasks);
 
             foreach (var client in MeterClientsGenerator.clients)
             {
                 CsvThreadLoggerUtility.Log(client.msn, "Client Initialized");
-                Thread thread = new Thread(() => RunSingleClient(client));
-                thread.Start();
+                //Thread thread = new Thread(() => RunSingleClient(client));
+                //thread.Start();
+
+                var _ = RunSingleClient(client);
+
+                //int progress = (clientsInitialized * 100) / clientsCount;
+
+                //ProgressBarHelper.DrawTextProgressBar(progress, clientsInitialized, clientsCount);
+
+                clientsInitialized++;
             }
-
-            //new MeterClientsGenerator().generateClients();
-
-            //foreach (var client in MeterClientsGenerator.clients)
-            //{
-            //    CsvThreadLoggerUtility.Log(client.msn, "Client Initialized");
-            //    await Task.Run(() => RunSingleClient(client));
-            //}
-
-
-
         }
 
 
         private async Task RunSingleClient(MeterConfiguration conf)
         {
+
+
+
             try
             {
                 CsvThreadLoggerUtility.Log(conf.msn, "Thread Started");
@@ -210,15 +208,27 @@ namespace MeterClient
 
                 await conf.mdsm.GenerateSamplingData(conf);
 
-                IPAddress ipAddress = IPAddress.Parse(conf.ippo.primary_ip_address);
 
-                var ipEndPoint = new IPEndPoint(ipAddress, conf.ippo.primary_port);
+                //while (true)
+                //{
+                //    if (clientsInitialized == MeterClientsGenerator.clients.Count)
+                //    {
+                //        break;
+                //    }
+                //}
 
-                TcpClient client = new();
-                await client.ConnectAsync(ipEndPoint);
-                NetworkStream stream = client.GetStream();
+                if (NeedsConnecting == 1)
+                {
+                    IPAddress ipAddress = IPAddress.Parse(conf.ippo.primary_ip_address);
 
-                await MeterClientRunningStream(stream, conf, client);
+                    var ipEndPoint = new IPEndPoint(ipAddress, conf.ippo.primary_port);
+
+                    TcpClient client = new();
+                    await client.ConnectAsync(ipEndPoint);
+                    NetworkStream stream = client.GetStream();
+
+                    await MeterClientRunningStream(stream, conf, client);
+                }
             }
             catch (Exception ex)
             {
@@ -230,7 +240,6 @@ namespace MeterClient
         private async Task MeterClientRunningStream(NetworkStream stream, MeterConfiguration conf, TcpClient client)
         {
             bool isLogged = false;
-
 
 
             do
@@ -246,6 +255,7 @@ namespace MeterClient
 
                 if (!client.Connected)
                 {
+                    //return;
                     IPAddress ipAddress = IPAddress.Parse(conf.ippo.primary_ip_address);
 
                     var ipEndPoint = new IPEndPoint(ipAddress, conf.ippo.primary_port);
@@ -254,14 +264,14 @@ namespace MeterClient
                     stream = client.GetStream();
                 }
 
-                SendCommand(stream, heartbeat, conf, true);
+                await SendCommandAsync(stream, heartbeat, conf, true);
                 if (isLogged == false)
                 {
                     CsvThreadLoggerUtility.Log1(conf.msn, heartbeat);
                 }
 
 
-                string re = ReadCommand(stream, conf, true);
+                string re = await ReadCommand(stream, conf, true);
 
                 if (isLogged == false)
                 {
@@ -285,7 +295,7 @@ namespace MeterClient
                             do
                             {
 
-                                re = ReadCommand(stream, conf, false);
+                                re = await ReadCommand(stream, conf, false);
                                 if (MeterConfigurationUI.cancelled) return;
                                 if (String.IsNullOrEmpty(re))
                                 {
@@ -303,10 +313,10 @@ namespace MeterClient
                                 }
 
 
-                                if ((DateTime.Now - lastCommTime).TotalSeconds > 180)
-                                {
-                                    SendCommand(stream, heartbeat, conf, false);
-                                }
+                                //if ((DateTime.Now - lastCommTime).TotalSeconds > 180)
+                                //{
+                                //    SendCommand(stream, heartbeat, conf, false);
+                                //}
 
                             }
                             while (String.IsNullOrEmpty(re) && (DateTime.Now - lastCommTime).TotalSeconds < 180);
@@ -316,15 +326,20 @@ namespace MeterClient
                             Console.WriteLine("Connection is inactive");
                         }
 
-                        ProcessCommand(stream, conf, re);
+                        await ProcessCommandAsync(stream, conf, re);
 
-                        conf.saveConfiguration("MeterConfigs/" + conf.msn + ".json");
+                        //client.Close();
+                        //return;
+
+                        //conf.saveConfiguration("MeterConfigs/" + conf.msn + ".json");
                     }
                 }
                 else
                 {
-                    ProcessCommand(stream, conf, re);
+                    await ProcessCommandAsync(stream, conf, re);
 
+                    //client.Close();
+                    //return;
 
                 }
 
@@ -333,7 +348,7 @@ namespace MeterClient
             return;
         }
 
-        private void ProcessCommand(NetworkStream stream, MeterConfiguration conf, string re)
+        private async Task ProcessCommandAsync(NetworkStream stream, MeterConfiguration conf, string re)
         {
             CommandType commandType = CommandClassifier.commandType(re);
 
@@ -348,19 +363,23 @@ namespace MeterClient
                     sendCmd = "C4 01 81 00 09 14 38 39 39 32 33 30 30 30 30 30 34 35 33 31 34 31 39 37 37 46";
                     var cmdArr = sendCmd.Split(' ');
                     int count = cmdArr.Length;
-                    string finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + sendCmd;
+                    string finalCommand = "00 01 00 01 00 30 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + sendCmd;
                     sendCmd = finalCommand;
                     break;
                 case CommandType.IMEI_READ:
                     sendCmd = "C4 01 81 00 09 0F 38 36 31 33 36 35 30 34 33 31 32 38 34 31 37";
                     cmdArr = sendCmd.Split(' ');
                     count = cmdArr.Length;
-                    finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + sendCmd;
+                    finalCommand = "00 01 00 01 00 30 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + sendCmd;
                     sendCmd = finalCommand;
                     break;
                 case CommandType.AARQ:
+                    Random random = new Random();
+
+                    int r = random.Next(5, 10);
                     if (PasswordChecker(re, conf))
                     {
+                        Thread.Sleep(r * 1000);
                         sendCmd = aare;
                         Console.ForegroundColor = ConsoleColor.Green;
                         Console.WriteLine("Password Correct");
@@ -368,6 +387,7 @@ namespace MeterClient
                     }
                     else
                     {
+                        Thread.Sleep(r * 1000);
                         sendCmd = error;
                         Console.ForegroundColor = ConsoleColor.Red;
                         Console.WriteLine("Password Incorrect");
@@ -379,7 +399,7 @@ namespace MeterClient
                     sendCmd = "C5 01 81 00";
                     cmdArr = sendCmd.Split(' ');
                     count = cmdArr.Length;
-                    finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + sendCmd;
+                    finalCommand = "00 01 00 01 00 30 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + sendCmd;
                     sendCmd = finalCommand;
                     break;
                 case CommandType.DMDT:
@@ -388,7 +408,7 @@ namespace MeterClient
                     {
                         var cmdArr2 = sendCmd.Split(' ');
                         int count2 = cmdArr2.Length;
-                        string finalCommand2 = "00 01 00 30 00 01 00 " + Convert.ToString(count2, 16).PadLeft(2, '0') + " " + sendCmd;
+                        string finalCommand2 = "00 01 00 01 00 30 00 " + Convert.ToString(count2, 16).PadLeft(2, '0') + " " + sendCmd;
                         sendCmd = finalCommand2;
                     }
                     break;
@@ -398,7 +418,7 @@ namespace MeterClient
                     {
                         var cmdArr3 = sendCmd.Split(' ');
                         int count3 = cmdArr3.Length;
-                        string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                        string finalCommand3 = "00 01 00 01 00 30 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
                         sendCmd = finalCommand3;
                     }
                     break;
@@ -408,7 +428,7 @@ namespace MeterClient
                     {
                         var cmdArr3 = sendCmd.Split(' ');
                         int count3 = cmdArr3.Length;
-                        string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                        string finalCommand3 = "00 01 00 01 00 30 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
                         sendCmd = finalCommand3;
                     }
                     break;
@@ -418,7 +438,7 @@ namespace MeterClient
                     {
                         var cmdArr3 = sendCmd.Split(' ');
                         int count3 = cmdArr3.Length;
-                        string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                        string finalCommand3 = "00 01 00 01 00 30 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
                         sendCmd = finalCommand3;
                     }
                     break;
@@ -428,7 +448,7 @@ namespace MeterClient
                     {
                         var cmdArr3 = sendCmd.Split(' ');
                         int count3 = cmdArr3.Length;
-                        string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                        string finalCommand3 = "00 01 00 01 00 30 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
                         sendCmd = finalCommand3;
                     }
                     break;
@@ -438,7 +458,7 @@ namespace MeterClient
                     {
                         var cmdArr3 = sendCmd.Split(' ');
                         int count3 = cmdArr3.Length;
-                        string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                        string finalCommand3 = "00 01 00 01 00 30 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
                         sendCmd = finalCommand3;
                     }
                     break;
@@ -448,7 +468,7 @@ namespace MeterClient
                     {
                         var cmdArr3 = sendCmd.Split(' ');
                         int count3 = cmdArr3.Length;
-                        string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                        string finalCommand3 = "00 01 00 01 00 30 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
                         sendCmd = finalCommand3;
                     }
                     break;
@@ -458,7 +478,7 @@ namespace MeterClient
                     {
                         var cmdArr3 = sendCmd.Split(' ');
                         int count3 = cmdArr3.Length;
-                        string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                        string finalCommand3 = "00 01 00 01 00 30 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
                         sendCmd = finalCommand3;
                     }
                     break;
@@ -468,7 +488,7 @@ namespace MeterClient
                     {
                         var cmdArr3 = sendCmd.Split(' ');
                         int count3 = cmdArr3.Length;
-                        string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                        string finalCommand3 = "00 01 00 01 00 30 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
                         sendCmd = finalCommand3;
                     }
                     break;
@@ -478,7 +498,7 @@ namespace MeterClient
                 //    {
                 //        var cmdArr3 = sendCmd.Split(' ');
                 //        int count3 = cmdArr3.Length;
-                //        string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                //        string finalCommand3 = "00 01 00 01 00 30 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
                 //        sendCmd = finalCommand3;
                 //    }
                 //    break;
@@ -488,32 +508,35 @@ namespace MeterClient
                     {
                         var cmdArr3 = sendCmd.Split(' ');
                         int count3 = cmdArr3.Length;
-                        string finalCommand3 = "00 01 00 30 00 01 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
+                        string finalCommand3 = "00 01 00 01 00 30 00 " + Convert.ToString(count3, 16).PadLeft(2, '0') + " " + sendCmd;
                         sendCmd = finalCommand3;
                     }
                     break;
                 case CommandType.INST_DATA_READ:
                     Logger.Instance.Log(conf.msn, "INST Data Read", "");
-                    re = conf.mdsm.ProcessCommandForInstantaneousData(re, stream, conf);
+                    re = await conf.mdsm.ProcessCommandForInstantaneousDataAsync(re, stream, conf);
                     if (re != "")
                     {
-                        ProcessCommand(stream, conf, re);
+                        await ProcessCommandAsync(stream, conf, re);
+                        return;
                     }
                     sendCmd = "";
                     break;
                 case CommandType.BILL_DATA_READ:
-                    re = conf.mdsm.ProcessCommandForBillingData(re, stream, conf);
+                    re = await conf.mdsm.ProcessCommandForBillingDataAsync(re, stream, conf);
                     if (re != "")
                     {
-                        ProcessCommand(stream, conf, re);
+                        await ProcessCommandAsync(stream, conf, re);
+                        return;
                     }
                     sendCmd = "";
                     break;
                 case CommandType.LPRO_DATA_READ:
-                    re = conf.mdsm.ProcessCommandForLPROData(re, stream, conf);
+                    re = await conf.mdsm.ProcessCommandForLPRODataAsync(re, stream, conf);
                     if (re != "")
                     {
-                        ProcessCommand(stream, conf, re);
+                        await ProcessCommandAsync(stream, conf, re);
+                        return;
                     }
                     sendCmd = "";
                     break;
@@ -531,15 +554,15 @@ namespace MeterClient
 
             if (sendCmd != "")
             {
-                SendCommand(stream, sendCmd, conf, false);
+                await SendCommandAsync(stream, sendCmd, conf, false);
             }
             else
             {
-                SendCommand(stream, error, conf, false);
+                await SendCommandAsync(stream, error, conf, false);
             }
         }
 
-        public static string ReadCommand(NetworkStream stream, MeterConfiguration conf, bool needsLogg = false)
+        public static async Task<string> ReadCommand(NetworkStream stream, MeterConfiguration conf, bool needsLogg = false)
         {
             string re = "";
             try
@@ -548,7 +571,7 @@ namespace MeterClient
 
                 stream.ReadTimeout = 200000;
 
-                int count = stream.Read(data, 0, data.Length);
+                int count = await stream.ReadAsync(data, 0, data.Length);
 
                 // Convert Data to Hex String
                 re = Convert.ToHexString(data, 0, count);
@@ -577,7 +600,7 @@ namespace MeterClient
             return re;
         }
 
-        public static void SendCommand(NetworkStream stream, string commandStr, MeterConfiguration conf, bool needsLogg = false)
+        public static async Task SendCommandAsync(NetworkStream stream, string commandStr, MeterConfiguration conf, bool needsLogg = false)
         {
             try
             {
@@ -588,7 +611,7 @@ namespace MeterClient
                 byte[] command = commandStr.Split()
                 .Select(s => Convert.ToByte(s, 16)).ToArray();
 
-                stream.Write(command, 0, command.Length);
+                await stream.WriteAsync(command, 0, command.Length);
 
                 if (needsLogg)
                 {
@@ -601,13 +624,14 @@ namespace MeterClient
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message);
+                Console.WriteLine($"Meter {conf.msn}: " + ex.Message);
+                await SendCommandAsync(stream, error, conf, false);
             }
         }
 
         public bool PasswordChecker(string aarq, MeterConfiguration conf)
         {
-            string s = "00 01 00 30 00 01 00 38 60 36 A1 09 06 07 60 85 74 05 08 01 01 8A 02 07 80 8B 07 60 85 74 05 08 02 01 AC 0A 80 08 ";
+            string s = "00 01 00 01 00 30 00 38 60 36 A1 09 06 07 60 85 74 05 08 01 01 8A 02 07 80 8B 07 60 85 74 05 08 02 01 AC 0A 80 08 ";
 
             int endIndex = aarq.IndexOf(" BE 10 04 0E 01 00 00 00 06 5F 1F 04 00 00 7E 1F 04 B0");
 
@@ -619,6 +643,11 @@ namespace MeterClient
 
 
             Console.WriteLine($"{meterPassword} {password}");
+
+            if (password != meterPassword)
+            {
+
+            }
 
             return (password == meterPassword);
             //return true;

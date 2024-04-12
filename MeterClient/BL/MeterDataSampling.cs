@@ -70,7 +70,7 @@ namespace MeterClient.BL
                     inst.CleanupOldData(conf);
                 }
 
-                await Task.Delay(TimeSpan.FromMinutes(24));
+                await Task.Delay(TimeSpan.FromMinutes(1));
             }
         }
 
@@ -86,7 +86,7 @@ namespace MeterClient.BL
                     bill.CleanupOldData(conf);
                 }
 
-                await Task.Delay(TimeSpan.FromMinutes(48.0));
+                await Task.Delay(TimeSpan.FromMinutes(1));
             }
         }
 
@@ -102,7 +102,7 @@ namespace MeterClient.BL
                 {
                     bill.CleanupOldData(conf);
                 }
-                await Task.Delay(TimeSpan.FromMinutes(30.0));
+                await Task.Delay(TimeSpan.FromMinutes(1));
             }
         }
 
@@ -187,7 +187,7 @@ namespace MeterClient.BL
 
 
 
-        public string ProcessCommandForInstantaneousData(string re, NetworkStream stream, MeterConfiguration conf)
+        public async Task<string> ProcessCommandForInstantaneousDataAsync(string re, NetworkStream stream, MeterConfiguration conf)
         {
             string command = "";
             if (re.Contains("C0 01 81 00 07 01 00 63 01 01 FF 02 01 01 02 04 02 04 12 00 08 09 06 00 00 01 00 00 FF 0F 02 12 00 00 09 0C"))
@@ -286,10 +286,10 @@ namespace MeterClient.BL
                     string finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + packet;
                     packet = finalCommand;
 
-                    MeterConfigurationUI.SendCommand(stream, packet, conf, false);
+                    await MeterConfigurationUI.SendCommandAsync(stream, packet, conf, false);
 
                     // Wait for the response
-                    var response = MeterConfigurationUI.ReadCommand(stream, conf, false);
+                    var response = await MeterConfigurationUI.ReadCommand(stream, conf, false);
 
                     var response1 = response.Replace(" ", "");
 
@@ -309,7 +309,7 @@ namespace MeterClient.BL
 
             return command;
         }
-        public string ProcessCommandForBillingData(string re, NetworkStream stream, MeterConfiguration conf)
+        public async Task<string> ProcessCommandForBillingDataAsync(string re, NetworkStream stream, MeterConfiguration conf)
         {
             string command = "";
             if (re.Contains("C0 01 81 00 07 01 00 63 02 00 FF 02 01 01 02 04 02 04 12 00 08 09 06 00 00 01 00 00 FF 0F 02 12 00 00 09 0C"))
@@ -420,10 +420,10 @@ namespace MeterClient.BL
                     string finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + packet;
                     packet = finalCommand;
 
-                    MeterConfigurationUI.SendCommand(stream, packet, conf, false);
+                    await MeterConfigurationUI.SendCommandAsync(stream, packet, conf, false);
 
                     // Wait for the response
-                    var response = MeterConfigurationUI.ReadCommand(stream, conf, false);
+                    var response = await MeterConfigurationUI.ReadCommand(stream, conf, false);
 
                     var response1 = response.Replace(" ", "");
 
@@ -445,7 +445,7 @@ namespace MeterClient.BL
         }
 
 
-        public string ProcessCommandForLPROData(string re, NetworkStream stream, MeterConfiguration conf)
+        public async Task<string> ProcessCommandForLPRODataAsync(string re, NetworkStream stream, MeterConfiguration conf)
         {
             string command = "";
             try
@@ -558,10 +558,10 @@ namespace MeterClient.BL
                         string finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + packet;
                         packet = finalCommand;
 
-                        MeterConfigurationUI.SendCommand(stream, packet, conf, false);
+                        await MeterConfigurationUI.SendCommandAsync(stream, packet, conf, false);
 
                         // Wait for the response
-                        var response = MeterConfigurationUI.ReadCommand(stream, conf, false);
+                        var response = await MeterConfigurationUI.ReadCommand(stream, conf, false);
 
                         var response1 = response.Replace(" ", "");
 
