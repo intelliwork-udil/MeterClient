@@ -30,6 +30,7 @@ namespace MeterClient
         Nothing,
 
 
+
         // hard coded
         MSIM_READ,
         IMEI_READ
@@ -62,7 +63,7 @@ namespace MeterClient
             {
                 return CommandType.AARQ;
             }
-            else if (command.Contains("C1 01 81 00 01 00 00") || command.Contains("C1 01 81 00 16 00 00 0F 00 00 FF 04 00 01 02 02 04 09 04"))
+            else if (command.Contains("C1 01 81 00 01 00 00") || command.Contains("C1 01 81 00 16 00 00 0F 00 00 FF 04 00 01 02 02 04 09 04") || command.Contains("C1 01 81 00 03 01 00 92 2C 00 FF 02 00 12 00 03") || command.Contains("C1 01 81 00 03 01 00 92 23 00 FF 02 00 06 00 00 00 02"))
             {
                 return CommandType.DeviceCreation;
             }
