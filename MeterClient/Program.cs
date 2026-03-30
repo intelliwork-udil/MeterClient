@@ -1,4 +1,8 @@
-﻿using MeterClient;
+/// <summary>
+/// Entry point for the MeterClient application.
+/// Initializes the application configuration and starts the configuration UI.
+/// </summary>
+using MeterClient;
 using Microsoft.Extensions.Configuration;
 
 IConfiguration configuration = new ConfigurationBuilder()

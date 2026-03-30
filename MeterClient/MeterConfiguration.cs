@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive;
@@ -9,9 +9,18 @@ using Newtonsoft.Json;
 
 namespace MeterClient
 {
+    /// <summary>
+    /// Represents the full configuration and operational state of a single meter client.
+    /// Includes various sub-operation objects (AuxRelay, IpPort, etc.) and communication utilities.
+    /// </summary>
     public class MeterConfiguration
     {
         //private static MeterConfiguration instance;
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MeterConfiguration"/> class with a specific MSN and password.
+        /// </summary>
+        /// <param name="_msn">Meter Serial Number.</param>
+        /// <param name="_passowrd">Password for the meter.</param>
         public MeterConfiguration(String _msn, String _passowrd)
         {
             auxr = new AuxRelayOperations();
@@ -34,6 +43,9 @@ namespace MeterClient
 
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MeterConfiguration"/> class with default settings.
+        /// </summary>
         public MeterConfiguration()
         {
             auxr = new AuxRelayOperations();
@@ -50,24 +62,40 @@ namespace MeterClient
             wsim = new WakeUpSimNumber();
         }
 
+        /// <summary> Auxiliary Relay Operations configuration. </summary>
         public AuxRelayOperations auxr { get; set; }
+        /// <summary> Optical Port Activation settings. </summary>
         public ActivateMeterOpticalPort oppo { get; set; }
+        /// <summary> Device Metadata including communication intervals. </summary>
         public DeviceMetaData dmdt { get; set; }
+        /// <summary> IP and Port settings for the meter connection. </summary>
         public IpPort ippo { get; set; }
+        /// <summary> Load Shedding Scheduling settings. </summary>
         public LoadSheddingScheduling lsch { get; set; }
+        /// <summary> MDI Reset Date configuration. </summary>
         public MdiResetDate mdi { get; set; }
+        /// <summary> Meter Data Sampling settings. </summary>
         public MeterDataSampling mdsm { get; set; }
+        /// <summary> Current status of the meter. </summary>
         public MeterStatus mtst { get; set; }
+        /// <summary> Sanctioned Load Control settings. </summary>
         public SanctionedLoadControl sanc { get; set; }
+        /// <summary> Time Of Use configuration. </summary>
         public TimeOfUse tiou { get; set; }
+        /// <summary> Device Time Synchronization settings. </summary>
         public TimeSynchronization dvtm { get; set; }
+        /// <summary> Wake up SIM number settings. </summary>
         public WakeUpSimNumber wsim { get; set; }
 
-
-        // Configuration Values
+        /// <summary> Meter Serial Number (MSN). </summary>
         public string msn { get; set; }
+        /// <summary> Security password for the meter. </summary>
         public string password { get; set; }
 
+        /// <summary>
+        /// Serializes the current configuration to a JSON file.
+        /// </summary>
+        /// <param name="filePath">Target file path.</param>
         public void saveConfiguration(string filePath = "config.json")
         {
             // Check if the file exists
@@ -80,6 +108,11 @@ namespace MeterClient
             File.WriteAllText(filePath, json);
         }
 
+        /// <summary>
+        /// Loads a meter configuration from a JSON file.
+        /// </summary>
+        /// <param name="filePath">Source file path.</param>
+        /// <returns>The deserialized <see cref="MeterConfiguration"/> object.</returns>
         public MeterConfiguration loadConfiguration(string filePath = "config.json")
         {
             if (File.Exists(filePath))
