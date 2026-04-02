@@ -61,6 +61,7 @@ namespace MeterClient
             GenerateFolders(Path.Combine("MeterSamplingData", "BillingData"));
             GenerateFolders(Path.Combine("MeterSamplingData", "InstanteneousData"));
             GenerateFolders(Path.Combine("MeterSamplingData", "LPROData"));
+            GenerateFolders(Path.Combine("MeterSamplingData", "EventData"));
 
 
         }
