@@ -382,6 +382,8 @@ namespace MeterClient
 
             switch (commandType)
             {
+                
+
                 case CommandType.MSIM_READ:
                     sendCmd = "C4 01 81 00 09 14 38 39 39 32 33 30 30 30 30 30 34 35 33 31 34 31 39 37 37 46";
                     var cmdArr = sendCmd.Split(' ');
@@ -538,6 +540,16 @@ namespace MeterClient
                 case CommandType.INST_DATA_READ:
                     Logger.Instance.Log(conf.msn, "INST Data Read", "");
                     re = await conf.mdsm.ProcessCommandForInstantaneousDataAsync(re, stream, conf);
+                    if (re != "")
+                    {
+                        await ProcessCommandAsync(stream, conf, re);
+                        return;
+                    }
+                    sendCmd = "";
+                    break;
+                case CommandType.Event:
+                    Logger.Instance.Log(conf.msn, "Event Data Read", "");
+                     re = await conf.mdsm.ProcessCommandForEventDataAsync(re, stream, conf);
                     if (re != "")
                     {
                         await ProcessCommandAsync(stream, conf, re);
