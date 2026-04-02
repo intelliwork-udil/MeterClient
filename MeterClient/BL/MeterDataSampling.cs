@@ -1,4 +1,4 @@
-﻿using CsvHelper;
+using CsvHelper;
 using CsvHelper.Configuration;
 using MeterClient.BL.MeterSamplingData;
 using MeterClient.Helper;
@@ -45,6 +45,9 @@ namespace MeterClient.BL
 
             Thread thread3 = new Thread(async () => await GenerateLPROSamplingInterval(conf));
             thread3.Start();
+
+            Thread thread4 = new Thread(async () => await GenerateEventSamplingInterval(conf));
+            thread4.Start();
 
         }
 
@@ -102,6 +105,22 @@ namespace MeterClient.BL
                 {
                     bill.CleanupOldData(conf);
                 }
+                await Task.Delay(TimeSpan.FromMinutes(1));
+            }
+        }
+
+        private async Task GenerateEventSamplingInterval(MeterConfiguration conf)
+        {
+            while (true)
+            {
+                EventDataSampling ev = new EventDataSampling();
+                ev.SaveDataToCsv(ev, conf);
+
+                if (DateTime.Now.TimeOfDay == TimeSpan.Zero)
+                {
+                    ev.CleanupOldData(conf);
+                }
+
                 await Task.Delay(TimeSpan.FromMinutes(1));
             }
         }
@@ -203,12 +222,10 @@ namespace MeterClient.BL
 
                 var startTime = new DateTime(year, month, day, hr, min, sec);
 
-
                 a1 = data[58];
                 a2 = data[59];
                 a3 = data[60];
                 a4 = data[61];
-
 
                 year = Converter.Instance.ConvertToYear(a1, a2);
                 month = a3;
@@ -220,6 +237,66 @@ namespace MeterClient.BL
 
                 var endTime = new DateTime(year, month, day, hr, min, sec);
                 var dataList = EventDataSampling.getData(conf, startTime, endTime);
+
+                string sendingCommand = "";
+
+                foreach (var d in dataList)
+                {
+                    if (d == dataList.LastOrDefault())
+                    {
+                        sendingCommand += d.DataInCommand();
+                    }
+                    else
+                    {
+                        sendingCommand += d.DataInCommand() + " ";
+                    }
+                }
+
+                sendingCommand = sendingCommand.Replace(" ", "");
+
+                int packetSize = 255;
+                int headerSize = 8; // Assuming that every packet would be max 255 or FF size long
+
+                packetSize = packetSize - headerSize;
+
+                packetSize = packetSize * 2; // Since we are sending hex data and every data would be of length 2
+
+                int packetNumber = 1;
+
+                for (int i = 0; i < sendingCommand.Length; i += packetSize)
+                {
+                    string packetData = sendingCommand.Substring(i, Math.Min(packetSize - 24, sendingCommand.Length - i - 24));
+
+                    string packetHeader = $"C4 02 C1 {Convert.ToString(packetNumber - 1, 16).PadLeft(2, '0')} {Convert.ToString(packetNumber, 16).PadLeft(8, '0')} 00 82 01 18 01 14";
+
+                    packetData = packetHeader + packetData;
+
+                    bool isLastPacket = (i + packetSize) >= sendingCommand.Length;
+
+                    string packet = ConstructEVENTPacket(packetData, isLastPacket, packetHeader, packetNumber);
+
+                    packet = MeterConfigurationUI.AddSpaceEveryNCharacters(packet, 2);
+
+                    var cmdArr = packet.Split(' ');
+                    int count = cmdArr.Length;
+                    string finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + packet;
+                    packet = finalCommand;
+
+                    await MeterConfigurationUI.SendCommandAsync(stream, packet, conf, false);
+
+                    var response = await MeterConfigurationUI.ReadCommand(stream, conf, false);
+
+                    var response1 = response.Replace(" ", "");
+
+                    if (!response1.Contains("C00281000000") && !response1.Contains("C002C1000000"))
+                    {
+                        command = response;
+                        break;
+                    }
+                    response1 = "";
+                    response = "";
+                    packetNumber++;
+                }
 
             }
             return command;
@@ -631,6 +708,21 @@ namespace MeterClient.BL
             if (isLastPacket)
             {
                 data = data.Replace(replacableStr, $"C4 02 81 {Convert.ToString(packetNumber - 1, 16).PadLeft(2, '0')} {Convert.ToString(packetNumber, 16).PadLeft(8, '0')} 00 7C ");
+            }
+            return data;
+        }
+        private string ConstructEVENTPacket(string data, bool isLastPacket, string replacableStr, int packetNumber)
+        {
+            if (isLastPacket)
+            {
+                int packetLength = (data.Replace(" ", "").Length / 2) - 9;
+                string lenHex = packetLength.ToString("X").PadLeft(2, '0');
+                if (packetLength >= 128)
+                {
+                    lenHex = "81" + lenHex;
+                }
+
+                data = data.Replace(replacableStr, $"C4 02 C1 01 {Convert.ToString(packetNumber, 16).PadLeft(8, '0')} 00 {lenHex} ");
             }
             return data;
         }

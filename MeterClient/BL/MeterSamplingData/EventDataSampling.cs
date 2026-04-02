@@ -221,5 +221,12 @@ namespace MeterClient.BL.MeterSamplingData
 
             return filteredRecords;
         }
+
+        public string DataInCommand()
+        {
+            DateTime _date = DateTime.ParseExact(date + " " + time, "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+            string com = $"02 02 10 {Converter.Instance.ValueToHex(2, EventCode)} 09 0C {Converter.Instance.DateTimeToHex(_date, "03")}";
+            return com;
+        }
     }
 }
