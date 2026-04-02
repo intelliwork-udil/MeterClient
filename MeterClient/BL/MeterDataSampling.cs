@@ -219,6 +219,7 @@ namespace MeterClient.BL
                 sec = data[65];
 
                 var endTime = new DateTime(year, month, day, hr, min, sec);
+                var dataList = EventDataSampling.getData(conf, startTime, endTime);
 
             }
             return command;
