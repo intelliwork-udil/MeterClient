@@ -109,6 +109,7 @@ namespace MeterClient.BL.MeterSamplingData
     }
     public class EventDataSampling
     {
-
+        public int EventCode{ get; set; }
+        public DateTime EventOccurTime { get; set; }
     }
 }

@@ -185,7 +185,7 @@ namespace MeterClient.BL
         public async Task<string> ProcessCommandForEventDataAsync(string re, NetworkStream stream, MeterConfiguration conf)
         {
             string command = "";
-            if (re.Contains("C0 01 81 00 07 01 00 63 03 00 FF 02 01 01 02 04 02 04 12 00 08 09 06 00 00 01 00 00 FF 0F 02 12 00 00 09 0C"))
+            if (re.Contains("C0 01 C1 00 07 01 00 63 62 00 FF 02 01 01 02 04 02 04 12 00 08 09 06 00 00 01 00 00 FF 0F 02 12 00 00 09 0C"))
             {
                 var data = re.Split().Select(x => Convert.ToByte(x, 16)).ToArray();
 
