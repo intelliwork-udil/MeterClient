@@ -45,7 +45,7 @@ namespace MeterClient
         public MeterConfigurationUI()
         {
 
-            //menu.Add("1. Setup Meter Configuration.");
+            
             menu.Add("1. Run Meter Client");
             //menu.Add("3. Exit");
 
@@ -597,7 +597,7 @@ namespace MeterClient
             string re = "";
             try
             {
-                var data = new byte[1024];
+                var data = new byte[512];
 
                 stream.ReadTimeout = 200000;
 
