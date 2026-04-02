@@ -28,6 +28,7 @@ namespace MeterClient
         BILL_DATA_READ,
         LPRO_DATA_READ,
         Nothing,
+        Event,
 
 
 
@@ -50,6 +51,10 @@ namespace MeterClient
             if (command == null)
             {
                 return CommandType.Nothing;
+            }
+            else if(command.Contains("C0 01 C1 00 07 01 00 63 62 00 FF 02 01 01 02 04 02 04 12 00 08 09 06 00 00 01 00 00 FF 0F 02 12 00 00 09 0C ") )
+            {
+                return CommandType.Event;
             }
             else if (command.Contains("00 01 00 30 00 01 00 0D C0 01 81 00 01 00 00 60 01 05 FF 02 00"))
             {
