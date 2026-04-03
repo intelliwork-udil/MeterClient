@@ -222,10 +222,14 @@ namespace MeterClient.BL.MeterSamplingData
             return filteredRecords;
         }
 
-        public string DataInCommand()
+        public string DataInCommand(bool isLast = false)
         {
             DateTime _date = DateTime.ParseExact(date + " " + time, "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
-            string com = $"02 02 10 {Converter.Instance.ValueToHex(2, EventCode)} 09 0C {Converter.Instance.DateTimeToHex(_date, "03")}";
+            string suffix = isLast ? "00 80 00 FF" : "00 80 FF";
+            // EventCode must be 2 bytes (4 hex digits), e.g. 64 → "00 40", 218 → "00 DA"
+            string eventHex = EventCode.ToString("X4"); // always 4 hex chars
+            string eventCodeHex = eventHex.Substring(0, 2) + " " + eventHex.Substring(2, 2);
+            string com = $"02 02 10 {eventCodeHex} 09 0C {Converter.Instance.DateTimeToHex(_date, "03")}  {suffix}";
             return com;
         }
     }

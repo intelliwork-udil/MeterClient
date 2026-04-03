@@ -301,7 +301,7 @@ namespace MeterClient
                 {
                     while (true)
                     {
-                        if ((DateTime.Now - lastCommTime).TotalSeconds > 180)
+                        if ((DateTime.Now - lastCommTime).TotalSeconds > 30)
                             break;
                         if (MeterConfigurationUI.cancelled) return;
 
@@ -336,11 +336,12 @@ namespace MeterClient
                                 //}
 
                             }
-                            while (String.IsNullOrEmpty(re) && (DateTime.Now - lastCommTime).TotalSeconds < 180);
+                            while (String.IsNullOrEmpty(re) && (DateTime.Now - lastCommTime).TotalSeconds < 30);
                         }
                         catch (Exception ex)
                         {
                             Console.WriteLine("Connection is inactive");
+                            break;
                         }
 
                         await ProcessCommandAsync(stream, conf, re);
@@ -676,7 +677,6 @@ namespace MeterClient
             catch (Exception ex)
             {
                 Console.WriteLine($"Meter {conf.msn}: " + ex.Message);
-                await SendCommandAsync(stream, error, conf, false);
             }
         }
 
