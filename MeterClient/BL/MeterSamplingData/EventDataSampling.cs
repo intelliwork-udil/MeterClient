@@ -225,7 +225,7 @@ namespace MeterClient.BL.MeterSamplingData
         public string DataInCommand(bool isLast = false)
         {
             DateTime _date = DateTime.ParseExact(date + " " + time, "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
-            string suffix = isLast ? "00 80 00 FF" : "00 80 FF";
+            string suffix = isLast ? "00 80  FF" : "00 80 FF";
             // EventCode must be 2 bytes (4 hex digits), e.g. 64 → "00 40", 218 → "00 DA"
             string eventHex = EventCode.ToString("X4"); // always 4 hex chars
             string eventCodeHex = eventHex.Substring(0, 2) + " " + eventHex.Substring(2, 2);
