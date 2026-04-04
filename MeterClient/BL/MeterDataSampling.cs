@@ -260,20 +260,19 @@ namespace MeterClient.BL
                 packetSize = packetSize * 2;
                 int packetNumber = 1;
 
-                int chunkSize = packetSize - 24;
-                int totalPackets = (int)Math.Ceiling((double)sendingCommand.Length / chunkSize);
+                
+                int totalPackets = (int)Math.Ceiling((double)sendingCommand.Length / (packetSize - 24));
                 string totalPacketsHex = Convert.ToString(totalPackets, 16).PadLeft(2, '0');
 
-                for (int i = 0; i < sendingCommand.Length; i += chunkSize)
+                for (int i = 0; i < sendingCommand.Length; i += packetSize)
                 {
-                    string packetData = sendingCommand.Substring(i, Math.Min(chunkSize, sendingCommand.Length - i));
+                    string packetData = sendingCommand.Substring(i, Math.Min(packetSize - 24, sendingCommand.Length - i - 24));
 
-                    bool isLastPacket = (i + chunkSize) >= sendingCommand.Length;
-                    string lastBlockFlag = isLastPacket ? "01" : "00";
-
-                    string packetHeader = $"C4 02 C1 {lastBlockFlag} {Convert.ToString(packetNumber, 16).PadLeft(8, '0')} 00 82 01 18 01 {totalPacketsHex}";
+                    
+                    string packetHeader = $"C4 02 C1 {Convert.ToString(packetNumber - 1, 16).PadLeft(2, '0')} {Convert.ToString(packetNumber, 16).PadLeft(8, '0')} 00 82 01 18 01 {totalPacketsHex}";
 
                     packetData = packetHeader + packetData;
+                    bool isLastPacket = (i + packetSize) >= sendingCommand.Length;
                     string packet = packetData;
                     packet = MeterConfigurationUI.AddSpaceEveryNCharacters(packet, 2);
                     var cmdArr = packet.Split(' ');
@@ -372,20 +371,18 @@ namespace MeterClient.BL
                 packetSize = packetSize * 2; // Since we are sending hex data and every data would be of length 2
 
                 int packetNumber = 1;
-                int chunkSize = packetSize - 24;
 
-                for (int i = 0; i < sendingCommand.Length; i += chunkSize)
+                for (int i = 0; i < sendingCommand.Length; i += packetSize)
                 {
 
-                    string packetData = sendingCommand.Substring(i, Math.Min(chunkSize, sendingCommand.Length - i));
+                    string packetData = sendingCommand.Substring(i, Math.Min(packetSize - 24, sendingCommand.Length - i - 24));
 
-                    // Determine if this is the last packet
-                    bool isLastPacket = (i + chunkSize) >= sendingCommand.Length;
-                    string lastBlockFlag = isLastPacket ? "01" : "00";
-
-                    string packetHeader = $"C40281{lastBlockFlag}" + Convert.ToString(packetNumber, 16).PadLeft(8, '0') + "00820118";
+                    string packetHeader = "C4028100000000" + Convert.ToString(packetNumber, 16).PadLeft(2, '0') + "00820118";
 
                     packetData = packetHeader + packetData;
+
+                    // Determine if this is the last packet
+                    bool isLastPacket = (i + packetSize) >= sendingCommand.Length;
 
                     // Construct the packet with the appropriate prefix and postfix
                     string packet = ConstructINSTPacket(packetData, isLastPacket, packetHeader, packetNumber);
@@ -503,23 +500,23 @@ namespace MeterClient.BL
                 packetSize = packetSize * 2; // Since we are sending hex data and every data would be of length 2
 
                 int packetNumber = 1;
-                int chunkSize = packetSize - 24;
 
-                for (int i = 0; i < sendingCommand.Length; i += chunkSize)
+                //int packetSize = Math.Min(maxBufferSize, sendingCommand.Length);
+
+                for (int i = 0; i < sendingCommand.Length; i += packetSize)
                 {
 
                     //sendingCommand = "C40281000000000200820118" + sendingCommand;
 
-                    string packetData = sendingCommand.Substring(i, Math.Min(chunkSize, sendingCommand.Length - i));
-
-                    // Determine if this is the last packet
-                    bool isLastPacket = (i + chunkSize) >= sendingCommand.Length;
-                    string lastBlockFlag = isLastPacket ? "01" : "00";
+                    string packetData = sendingCommand.Substring(i, Math.Min(packetSize - 24, sendingCommand.Length - i - 24));
 
                     //string packetHeader = "C4028100000000" + Convert.ToString(packetNumber, 16).PadLeft(2, '0') + "00820118";
-                    string packetHeader = $"C4 02 81 {lastBlockFlag} {Convert.ToString(packetNumber, 16).PadLeft(8, '0')} 00 82 01 18 01 02";
+                    string packetHeader = $"C4 02 81 {Convert.ToString(packetNumber - 1, 16).PadLeft(2, '0')} {Convert.ToString(packetNumber, 16).PadLeft(8, '0')} 00 82 01 18 01 02";
 
                     packetData = packetHeader + packetData;
+
+                    // Determine if this is the last packet
+                    bool isLastPacket = (i + packetSize) >= sendingCommand.Length;
 
                     // Construct the packet with the appropriate prefix and postfix
                     string packet = ConstructBILLPacket(packetData, isLastPacket, packetHeader, packetNumber);
@@ -641,23 +638,23 @@ namespace MeterClient.BL
                     packetSize = packetSize * 2; // Since we are sending hex data and every data would be of length 2
 
                     int packetNumber = 1;
-                    int chunkSize = packetSize - 24;
 
-                    for (int i = 0; i < sendingCommand.Length; i += chunkSize)
+                    //int packetSize = Math.Min(maxBufferSize, sendingCommand.Length);
+
+                    for (int i = 0; i < sendingCommand.Length; i += packetSize)
                     {
 
                         //sendingCommand = "C40281000000000200820118" + sendingCommand;
 
-                        string packetData = sendingCommand.Substring(i, Math.Min(chunkSize, sendingCommand.Length - i));
-
-                        // Determine if this is the last packet
-                        bool isLastPacket = (i + chunkSize) >= sendingCommand.Length;
-                        string lastBlockFlag = isLastPacket ? "01" : "00";
+                        string packetData = sendingCommand.Substring(i, Math.Min(packetSize - 24, sendingCommand.Length - i - 24));
 
                         //string packetHeader = "C4028100000000" + Convert.ToString(packetNumber, 16).PadLeft(2, '0') + "00820118";
-                        string packetHeader = $"C4 02 81 {lastBlockFlag} {Convert.ToString(packetNumber, 16).PadLeft(8, '0')} 00 82 01 18 01 02";
+                        string packetHeader = $"C4 02 81 {Convert.ToString(packetNumber - 1, 16).PadLeft(2, '0')} {Convert.ToString(packetNumber, 16).PadLeft(8, '0')} 00 82 01 18 01 02";
 
                         packetData = packetHeader + packetData;
+
+                        // Determine if this is the last packet
+                        bool isLastPacket = (i + packetSize) >= sendingCommand.Length;
 
                         // Construct the packet with the appropriate prefix and postfix
                         string packet = ConstructLPROPacket(packetData, isLastPacket, packetHeader, packetNumber);
