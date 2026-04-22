@@ -343,8 +343,8 @@ namespace MeterClient.BL
                 var dataList = InstanteneousDataSampling.getData(conf, startTime, endTime);
 
 
-                int numBlocks = 0;
-                int maxDataPerBlock = 0;
+                //int numBlocks = 0;
+                //int maxDataPerBlock = 0;
 
                 string sendingCommand = "";
 
@@ -467,8 +467,8 @@ namespace MeterClient.BL
                 var dataList = BillingDataSampling.getData(conf, startTime, endTime);
 
 
-                int numBlocks = 0;
-                int maxDataPerBlock = 0;
+                //int numBlocks = 0;
+                //int maxDataPerBlock = 0;
 
                 string sendingCommand = "";
 
@@ -605,8 +605,8 @@ namespace MeterClient.BL
                     var dataList = LproDataSampling.getData(conf, startTime, endTime);
 
 
-                    int numBlocks = 0;
-                    int maxDataPerBlock = 0;
+                    //int numBlocks = 0;
+                    //int maxDataPerBlock = 0;
 
                     string sendingCommand = "";
 
