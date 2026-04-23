@@ -568,6 +568,8 @@ namespace MeterClient
                     }
                     sendCmd = "";
                     break;
+
+                 
                 case CommandType.LPRO_DATA_READ:
                     re = await conf.mdsm.ProcessCommandForLPRODataAsync(re, stream, conf);
                     if (re != "")

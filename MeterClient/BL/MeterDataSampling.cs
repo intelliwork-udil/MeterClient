@@ -555,7 +555,15 @@ namespace MeterClient.BL
             return command;
         }
 
-
+        public async Task<string> ProcessCommandForMBILLDataAsync(string re, NetworkStream stream, MeterConfiguration conf)
+        {
+            string command = "";
+            if (re.Contains("C0 01 C1 00 07 01 00 62 01 00 FF 02 01 01 02 04 02 04 12 00 08 09 06 00 00 01 00 00 FF 0F 02 12 00 00 09 0C"))
+            {
+                
+            }
+            return command;
+        }
         public async Task<string> ProcessCommandForLPRODataAsync(string re, NetworkStream stream, MeterConfiguration conf)
         {
             string command = "";
