@@ -129,8 +129,7 @@ namespace MeterClient
 
                             client.dmdt.communication_type = 1;
 
-
-                            client.saveConfiguration("MeterConfigs/" + client.msn + ".json");
+                            //client.saveConfiguration("MeterConfigs/" + client.msn + ".json");
 
                             _clients.Add(client);
                             //count++;

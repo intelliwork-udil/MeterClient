@@ -96,17 +96,16 @@ namespace MeterClient
         /// Serializes the current configuration to a JSON file.
         /// </summary>
         /// <param name="filePath">Target file path.</param>
-        public void saveConfiguration(string filePath = "config.json")
-        {
-            // Check if the file exists
-            if (!File.Exists(filePath))
-            {
-                // If the file doesn't exist, create an empty file
-                File.WriteAllText(filePath, string.Empty);
-            }
-            string json = JsonConvert.SerializeObject(this, Formatting.Indented);
-            File.WriteAllText(filePath, json);
-        }
+        //public void saveConfiguration(string filePath = "config.json")
+        //{
+        // Commented out to prevent massive disk I/O bottlenecks
+        // if (!File.Exists(filePath))
+        // {
+        //     File.WriteAllText(filePath, string.Empty);
+        // }
+        // string json = JsonConvert.SerializeObject(this, Formatting.Indented);
+        // File.WriteAllText(filePath, json);
+        //}
 
         /// <summary>
         /// Loads a meter configuration from a JSON file.
