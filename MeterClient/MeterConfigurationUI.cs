@@ -220,8 +220,7 @@ namespace MeterClient
             try
             {
                 CsvThreadLoggerUtility.Log(conf.msn, "Thread Started");
-
-                conf = conf.loadConfiguration("MeterConfigs/" + conf.msn + ".json");
+                //conf = conf.loadConfiguration("MeterConfigs/" + conf.msn + ".json");
 
                 await conf.mdsm.GenerateSamplingData(conf);
 
