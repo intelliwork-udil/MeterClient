@@ -1,4 +1,4 @@
-﻿using ExcelDataReader;
+using ExcelDataReader;
 using MeterClient.Helper;
 using Microsoft.Extensions.Configuration;
 using System;
@@ -12,16 +12,41 @@ using System.Threading.Tasks;
 
 namespace MeterClient
 {
+    /// <summary>
+    /// Class responsible for generating and managing meter configurations and client data from an Excel source.
+    /// It handles global configuration setup and provides logic to filter and load specific ranges of meters.
+    /// </summary>
     public class MeterClientsGenerator
     {
+        /// <summary>
+        /// A list containing the generated and filtered meter configurations.
+        /// </summary>
         public static List<MeterConfiguration> clients = new List<MeterConfiguration>();
 
+        /// <summary>
+        /// Global IP address for the MDC connection.
+        /// </summary>
         public static string ipAddress = "";
+
+        /// <summary>
+        /// The port number for communication.
+        /// </summary>
         public static int port = 0;
+
+        /// <summary>
+        /// The communication interval for each meter (converted to seconds).
+        /// </summary>
         public static int communicationInterval = 0;
 
+        /// <summary>
+        /// The file path for the source Excel data.
+        /// </summary>
         public static string fileName = "";
 
+        /// <summary>
+        /// Sets up the global configuration for the generator based on the provided <see cref="IConfiguration"/>.
+        /// </summary>
+        /// <param name="configuration">The configuration object holding the connection parameters.</param>
         public static void SetupGlobalConfiguration(IConfiguration configuration)
         {
             MeterClientsGenerator.ipAddress = configuration["MDC_Connections:ipAddress"];
@@ -32,6 +57,10 @@ namespace MeterClient
 
 
 
+        /// <summary>
+        /// This method starts reading the Excel file provided in the global configuration, 
+        /// generates client configurations, saves them as JSON, and filters them based on user input.
+        /// </summary>
         public void generateClients()
         {
 

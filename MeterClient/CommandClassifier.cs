@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 
 namespace MeterClient
 {
+    /// <summary>
+    /// Defines the various types of commands supported by the meter communication protocol.
+    /// </summary>
     public enum CommandType
     {
         AARQ,
@@ -25,19 +28,37 @@ namespace MeterClient
         BILL_DATA_READ,
         LPRO_DATA_READ,
         Nothing,
+        Event,
+        MBILL_DATA_READ,
 
 
         // hard coded
         MSIM_READ,
         IMEI_READ
     }
+    /// <summary>
+    /// Utility class to classify raw hex commands into structured <see cref="CommandType"/> values.
+    /// </summary>
     public static class CommandClassifier
     {
+        /// <summary>
+        /// Analyzes a hex command string and returns its corresponding <see cref="CommandType"/>.
+        /// </summary>
+        /// <param name="command">The raw hex command string received from the MDC.</param>
+        /// <returns>The classified <see cref="CommandType"/>.</returns>
         public static CommandType commandType(string command)
         {
             if (command == null)
             {
                 return CommandType.Nothing;
+            }
+            else if (command.Contains("C0 01 C1 00 07 01 00 63 62 00 FF 02 01 01 02 04 02 04 12 00 08 09 06 00 00 01 00 00 FF 0F 02 12 00 00 09 0C"))
+            {
+                return CommandType.Event;
+            }
+            else if (command.Contains("C0 01 C1 00 07 01 00 62 01 00 FF 02 01 01 02 04 02 04 12 00 08 09 06 00 00 01 00 00 FF 0F 02 12 00 00 09 0C"))
+            {
+                return CommandType.MBILL_DATA_READ;
             }
             else if (command.Contains("00 01 00 30 00 01 00 0D C0 01 81 00 01 00 00 60 01 05 FF 02 00"))
             {
@@ -51,7 +72,7 @@ namespace MeterClient
             {
                 return CommandType.AARQ;
             }
-            else if (command.Contains("C1 01 81 00 01 00 00") || command.Contains("C1 01 81 00 16 00 00 0F 00 00 FF 04 00 01 02 02 04 09 04"))
+            else if (command.Contains("C1 01 81 00 01 00 00") || command.Contains("C1 01 81 00 16 00 00 0F 00 00 FF 04 00 01 02 02 04 09 04") || command.Contains("C1 01 81 00 03 01 00 92 2C 00 FF 02 00 12 00 03") || command.Contains("C1 01 81 00 03 01 00 92 23 00 FF 02 00 06 00 00 00 02"))
             {
                 return CommandType.DeviceCreation;
             }

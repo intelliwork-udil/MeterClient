@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,21 +6,38 @@ using System.Threading.Tasks;
 
 namespace MeterClient.BL
 {
+    /// <summary>
+    /// Holds metadata and operational configurations for a specific meter device, 
+    /// such as communication intervals, SIM information, and measurement phases.
+    /// </summary>
     public class DeviceMetaData
     {
+        /// <summary> The type of device. </summary>
         public int device_type { get; set; }
+        /// <summary> Timestamp of the request. </summary>
         public DateTime request_datetime { get; set; }
+        /// <summary> Mode of communication. </summary>
         public int communication_mode { get; set; }
+        /// <summary> Indicates if the device supports bidirectional communication. </summary>
         public bool bidirectional_device { get; set; }
+        /// <summary> Type of communication protocol used. </summary>
         public int communication_type { get; set; }
+        /// <summary> Initial time for communication. </summary>
         public TimeOnly initial_communication_time { get; set; }
 
+        /// <summary> Interval between communications in seconds. </summary>
         public int communication_interval { get; set; }
+        /// <summary> SIM number associated with the device. </summary>
         public string sim_number { get; set; }
+        /// <summary> Unique ID for the SIM. </summary>
         public int sim_id { get; set; }
+        /// <summary> Date for MDI reset. </summary>
         public int mdi_reset_date { get; set; }
+        /// <summary> Time for MDI reset. </summary>
         public TimeOnly mdi_reset_time { get; set; }
+        /// <summary> Electrical phase of the meter. </summary>
         public int phase { get; set; }
+        /// <summary> Specific model or type of the meter. </summary>
         public int meter_type { get; set; }
 
         public DeviceMetaData()
@@ -53,6 +70,11 @@ namespace MeterClient.BL
         }
 
 
+        /// <summary>
+        /// Updates the device metadata based on the received command string.
+        /// Extracts communication times, intervals, and types from hex payloads.
+        /// </summary>
+        /// <param name="command">The received hex command payload.</param>
         public void PerformCommand(string command)
         {
             if (command.Contains("C1 01 81 00 01 00 00 60 3C 06 FF 02 00 02 02 09 03"))
@@ -125,6 +147,11 @@ namespace MeterClient.BL
             }
         }
 
+        /// <summary>
+        /// Generates a response command string based on the requested metadata point.
+        /// </summary>
+        /// <param name="receivedCommand">The command requesting data.</param>
+        /// <returns>A hex command response containing the requested metadata.</returns>
         public string GetDataCommand(string receivedCommand)
         {
             string command = "C4 01 81 00 ";

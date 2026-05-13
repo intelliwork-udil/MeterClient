@@ -1,4 +1,4 @@
-﻿using CsvHelper;
+using CsvHelper;
 using CsvHelper.Configuration;
 using MeterClient.BL.MeterSamplingData;
 using MeterClient.Helper;
@@ -46,6 +46,9 @@ namespace MeterClient.BL
             Thread thread3 = new Thread(async () => await GenerateLPROSamplingInterval(conf));
             thread3.Start();
 
+            Thread thread4 = new Thread(async () => await GenerateEventSamplingInterval(conf));
+            thread4.Start();
+
         }
 
         //public async Task GenerateSamplingData(MeterConfiguration conf)
@@ -76,6 +79,8 @@ namespace MeterClient.BL
 
         private async Task GenerateBillingSamplingInterval(MeterConfiguration conf)
         {
+            string lastSnapshottedMonth = null;
+
             while (true)
             {
                 BillingDataSampling bill = new BillingDataSampling(conf);
@@ -84,6 +89,21 @@ namespace MeterClient.BL
                 if (DateTime.Now.TimeOfDay == TimeSpan.Zero)
                 {
                     bill.CleanupOldData(conf);
+                }
+
+                DateTime now = DateTime.Now;
+                int day = conf.mdi != null && conf.mdi.mdi_reset_date > 0 ? conf.mdi.mdi_reset_date : 1;
+                TimeOnly t = conf.mdi != null ? conf.mdi.mdi_reset_time : new TimeOnly(0, 0);
+                int safeDay = Math.Min(day, DateTime.DaysInMonth(now.Year, now.Month));
+                DateTime resetThisMonth = new DateTime(now.Year, now.Month, safeDay, t.Hour, t.Minute, t.Second);
+                string monthKey = resetThisMonth.ToString("yyyy-MM");
+
+                if (now >= resetThisMonth && lastSnapshottedMonth != monthKey)
+                {
+                    MonthlyBillingDataSampling mbill = new MonthlyBillingDataSampling(bill);
+                    mbill.SaveDataToCsv(mbill, conf);
+                    mbill.CleanupOldData(conf);
+                    lastSnapshottedMonth = monthKey;
                 }
 
                 await Task.Delay(TimeSpan.FromMinutes(1));
@@ -102,6 +122,22 @@ namespace MeterClient.BL
                 {
                     bill.CleanupOldData(conf);
                 }
+                await Task.Delay(TimeSpan.FromMinutes(1));
+            }
+        }
+
+        private async Task GenerateEventSamplingInterval(MeterConfiguration conf)
+        {
+            while (true)
+            {
+                EventDataSampling ev = new EventDataSampling();
+                ev.SaveDataToCsv(ev, conf);
+
+                if (DateTime.Now.TimeOfDay == TimeSpan.Zero)
+                {
+                    ev.CleanupOldData(conf);
+                }
+
                 await Task.Delay(TimeSpan.FromMinutes(1));
             }
         }
@@ -182,9 +218,101 @@ namespace MeterClient.BL
         }
 
 
+        public async Task<string> ProcessCommandForEventDataAsync(string re, NetworkStream stream, MeterConfiguration conf)
+        {
+            string command = "";
+            if (re.Contains("C0 01 C1 00 07 01 00 63 62 00 FF 02 01 01 02 04 02 04 12 00 08 09 06 00 00 01 00 00 FF 0F 02 12 00 00 09 0C"))
+            {
+                var data = re.Split().Select(x => Convert.ToByte(x, 16)).ToArray();
+                int a1 = data[44];
+                int a2 = data[45];
+                int a3 = data[46];
+                int a4 = data[47];
 
+                int year = Converter.Instance.ConvertToYear(a1, a2);
+                int month = a3;
+                int day = a4;
 
+                int hr = data[49];
+                int min = data[50];
+                int sec = data[51];
 
+                var startTime = new DateTime(year, month, day, hr, min, sec);
+
+                a1 = data[58];
+                a2 = data[59];
+                a3 = data[60];
+                a4 = data[61];
+
+                year = Converter.Instance.ConvertToYear(a1, a2);
+                month = a3;
+                day = a4;
+
+                hr = data[63];
+                min = data[64];
+                sec = data[65];
+
+                var endTime = new DateTime(year, month, day, hr, min, sec);
+                var dataList = EventDataSampling.getData(conf, startTime, endTime);
+
+                string sendingCommand = "";
+
+                foreach (var d in dataList)
+                {
+                    if (d == dataList.LastOrDefault())
+                    {
+                        sendingCommand += d.DataInCommand(true);
+                    }
+                    else
+                    {
+                        sendingCommand += d.DataInCommand(false) + " ";
+                    }
+                }
+
+                sendingCommand = sendingCommand.Replace(" ", "");
+
+                int packetSize = 255;
+                int headerSize = 8;
+                packetSize = packetSize - headerSize;
+                packetSize = packetSize * 2;
+                int packetNumber = 1;
+
+                int chunkSize = packetSize - 24;
+                int totalPackets = (int)Math.Ceiling((double)sendingCommand.Length / chunkSize);
+                string totalPacketsHex = Convert.ToString(totalPackets, 16).PadLeft(2, '0');
+
+                for (int i = 0; i < sendingCommand.Length; i += chunkSize)
+                {
+                    string packetData = sendingCommand.Substring(i, Math.Min(chunkSize, sendingCommand.Length - i));
+
+                    bool isLastPacket = (i + chunkSize) >= sendingCommand.Length;
+                    string lastBlockFlag = isLastPacket ? "01" : "00";
+                    
+                    string packetHeader = $"C4 02 C1 {lastBlockFlag} {Convert.ToString(packetNumber, 16).PadLeft(8, '0')} 00 82 01 18 01 {totalPacketsHex}";
+
+                    packetData = packetHeader + packetData;
+                    string packet = packetData;
+                    packet = MeterConfigurationUI.AddSpaceEveryNCharacters(packet, 2);
+                    var cmdArr = packet.Split(' ');
+                    int count = cmdArr.Length;
+                    string finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + packet;
+                    packet = finalCommand;
+                    await MeterConfigurationUI.SendCommandAsync(stream, packet, conf, false);
+                    var response = await MeterConfigurationUI.ReadCommand(stream, conf, false);
+                    var response1 = response.Replace(" ", "");
+                    if (!response1.Contains("C00281000000") && !response1.Contains("C002C1000000"))
+                    {
+                        command = response;
+                        break;
+                    }
+                    response1 = "";
+                    response = "";
+                    packetNumber++;
+                }
+
+            }
+            return command;
+        }
 
 
         public async Task<string> ProcessCommandForInstantaneousDataAsync(string re, NetworkStream stream, MeterConfiguration conf)
@@ -232,8 +360,8 @@ namespace MeterClient.BL
                 var dataList = InstanteneousDataSampling.getData(conf, startTime, endTime);
 
 
-                int numBlocks = 0;
-                int maxDataPerBlock = 0;
+                //int numBlocks = 0;
+                //int maxDataPerBlock = 0;
 
                 string sendingCommand = "";
 
@@ -356,8 +484,8 @@ namespace MeterClient.BL
                 var dataList = BillingDataSampling.getData(conf, startTime, endTime);
 
 
-                int numBlocks = 0;
-                int maxDataPerBlock = 0;
+                //int numBlocks = 0;
+                //int maxDataPerBlock = 0;
 
                 string sendingCommand = "";
 
@@ -444,7 +572,6 @@ namespace MeterClient.BL
             return command;
         }
 
-
         public async Task<string> ProcessCommandForLPRODataAsync(string re, NetworkStream stream, MeterConfiguration conf)
         {
             string command = "";
@@ -494,8 +621,8 @@ namespace MeterClient.BL
                     var dataList = LproDataSampling.getData(conf, startTime, endTime);
 
 
-                    int numBlocks = 0;
-                    int maxDataPerBlock = 0;
+                    //int numBlocks = 0;
+                    //int maxDataPerBlock = 0;
 
                     string sendingCommand = "";
 
@@ -595,6 +722,14 @@ namespace MeterClient.BL
             }
             return data;
         }
+        private string ConstructEVENTPacket(string data, bool isLastPacket, string replacableStr, int packetNumber)
+        {
+            if (isLastPacket)
+            {
+                data = data.Replace(replacableStr, $"C4 02 C1 01 {Convert.ToString(packetNumber, 16).PadLeft(8, '0')} ");
+            }
+            return data;
+        }
         private string ConstructLPROPacket(string data, bool isLastPacket, string replacableStr, int packetNumber)
         {
             if (isLastPacket)
@@ -611,6 +746,117 @@ namespace MeterClient.BL
                 data = data.Replace(replacableStr, "C4028101000000" + Convert.ToString(packetNumber, 16).PadLeft(2, '0') + "0072");
             }
             return data;
+        }
+
+        private string ConstructMBILLPacket(string data, bool isLastPacket, string replacableStr, int packetNumber, bool isSingleBlock)
+        {
+            if (isLastPacket)
+            {
+                string blockCountByte = isSingleBlock ? "01" : "02";
+                data = data.Replace(replacableStr, $"C4 {blockCountByte} C1 01 {Convert.ToString(packetNumber, 16).PadLeft(8, '0')} 00 7C ");
+            }
+            return data;
+        }
+
+        public async Task<string> ProcessCommandForMBillingDataAsync(string re, NetworkStream stream, MeterConfiguration conf)
+        {
+            string command = "";
+            if (re.Contains("C0 01 C1 00 07 01 00 62 01 00 FF 02 01 01 02 04 02 04 12 00 08 09 06 00 00 01 00 00 FF 0F 02 12 00 00 09 0C"))
+            {
+                var data = re.Split().Select(x => Convert.ToByte(x, 16)).ToArray();
+
+                int a1 = data[44];
+                int a2 = data[45];
+                int a3 = data[46];
+                int a4 = data[47];
+
+                int year = Converter.Instance.ConvertToYear(a1, a2);
+                int month = a3;
+                int day = a4;
+
+                int hr = data[49];
+                int min = data[50];
+                int sec = data[51];
+
+                var startTime = new DateTime(year, month, day, hr, min, sec);
+                Console.WriteLine("Start Date time: " + startTime);
+                a1 = data[58];
+                a2 = data[59];
+                a3 = data[60];
+                a4 = data[61];
+
+                year = Converter.Instance.ConvertToYear(a1, a2);
+                month = a3;
+                day = a4;
+
+                hr = data[63];
+                min = data[64];
+                sec = data[65];
+
+                var endTime = new DateTime(year, month, day, hr, min, sec);
+                Console.WriteLine("End Date time: " + endTime);
+                var dataList = MonthlyBillingDataSampling.getData(conf, startTime, endTime);
+
+                string sendingCommand = "";
+
+                foreach (var d in dataList)
+                {
+                    if (d == dataList.LastOrDefault())
+                    {
+                        sendingCommand += d.DataInCommand(conf);
+                    }
+                    else
+                    {
+                        sendingCommand += d.DataInCommand(conf) + " ";
+                    }
+                }
+
+                sendingCommand = sendingCommand.Replace(" ", "");
+
+                int packetSize = 255;
+                int headerSize = 8;
+                packetSize = packetSize - headerSize;
+                packetSize = packetSize * 2;
+                int packetNumber = 1;
+
+                for (int i = 0; i < sendingCommand.Length; i += packetSize)
+                {
+                    string packetData = sendingCommand.Substring(i, Math.Min(packetSize - 24, sendingCommand.Length - i - 24));
+
+                    string packetHeader = $"C4 02 C1 00 {Convert.ToString(packetNumber, 16).PadLeft(8, '0')} 00 82 01 18 01 01 02";
+
+                    packetData = packetHeader + packetData;
+
+                    bool isLastPacket = (i + packetSize) >= sendingCommand.Length;
+                    bool isSingleBlock = isLastPacket && packetNumber == 1;
+
+                    string packet = ConstructMBILLPacket(packetData, isLastPacket, packetHeader, packetNumber, isSingleBlock);
+
+                    packet = MeterConfigurationUI.AddSpaceEveryNCharacters(packet, 2);
+
+                    var cmdArr = packet.Split(' ');
+                    int count = cmdArr.Length;
+                    string finalCommand = "00 01 00 30 00 01 00 " + Convert.ToString(count, 16).PadLeft(2, '0') + " " + packet;
+                    packet = finalCommand;
+
+                    await MeterConfigurationUI.SendCommandAsync(stream, packet, conf, false);
+
+                    var response = await MeterConfigurationUI.ReadCommand(stream, conf, false);
+
+                    var response1 = response.Replace(" ", "");
+
+                    if (!response1.Contains("C00281000000") && !response1.Contains("C002C1000000"))
+                    {
+                        command = response;
+                        break;
+                    }
+                    response1 = "";
+                    response = "";
+                    packetNumber++;
+                }
+            }
+
+            return command;
         }
     }
 }

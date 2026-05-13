@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
@@ -13,6 +13,10 @@ using System.Diagnostics;
 
 namespace MeterClient
 {
+    /// <summary>
+    /// Provides a console-based user interface for configuring and running the meter simulator clients.
+    /// Manages network streams, command processing, and concurrent client execution.
+    /// </summary>
     public class MeterConfigurationUI
     {
         //TcpClient client;
@@ -34,10 +38,14 @@ namespace MeterClient
 
         public static int NeedsConnecting = 1;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MeterConfigurationUI"/> class.
+        /// Sets up initial menu options and ensures required directories exist.
+        /// </summary>
         public MeterConfigurationUI()
         {
 
-            //menu.Add("1. Setup Meter Configuration.");
+            
             menu.Add("1. Run Meter Client");
             //menu.Add("3. Exit");
 
@@ -53,6 +61,7 @@ namespace MeterClient
             GenerateFolders(Path.Combine("MeterSamplingData", "BillingData"));
             GenerateFolders(Path.Combine("MeterSamplingData", "InstanteneousData"));
             GenerateFolders(Path.Combine("MeterSamplingData", "LPROData"));
+            GenerateFolders(Path.Combine("MeterSamplingData", "EventData"));
 
 
         }
@@ -80,6 +89,10 @@ namespace MeterClient
         }
 
 
+        /// <summary>
+        /// The main entry point for the UI logic. Displays the menu and handles user input.
+        /// </summary>
+        /// <returns>A task representing the asynchronous operation.</returns>
         public async Task Main()
         {
             // Main function
@@ -151,6 +164,10 @@ namespace MeterClient
 
         int clientsInitialized = 0;
 
+        /// <summary>
+        /// Triggers the generation of meter clients and starts their execution concurrently.
+        /// </summary>
+        /// <returns>A task representing the asynchronous operation.</returns>
         public async Task RunMeterClient()
         {
 
@@ -284,7 +301,7 @@ namespace MeterClient
                 {
                     while (true)
                     {
-                        if ((DateTime.Now - lastCommTime).TotalSeconds > 180)
+                        if ((DateTime.Now - lastCommTime).TotalSeconds > 30)
                             break;
                         if (MeterConfigurationUI.cancelled) return;
 
@@ -319,11 +336,12 @@ namespace MeterClient
                                 //}
 
                             }
-                            while (String.IsNullOrEmpty(re) && (DateTime.Now - lastCommTime).TotalSeconds < 180);
+                            while (String.IsNullOrEmpty(re) && (DateTime.Now - lastCommTime).TotalSeconds < 30);
                         }
                         catch (Exception ex)
                         {
                             Console.WriteLine("Connection is inactive");
+                            break;
                         }
 
                         await ProcessCommandAsync(stream, conf, re);
@@ -348,6 +366,13 @@ namespace MeterClient
             return;
         }
 
+        /// <summary>
+        /// Processes a received command, determines its type, and sends the appropriate response.
+        /// </summary>
+        /// <param name="stream">The network stream to communicate over.</param>
+        /// <param name="conf">The configuration for the specific meter.</param>
+        /// <param name="re">The raw command string received.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
         private async Task ProcessCommandAsync(NetworkStream stream, MeterConfiguration conf, string re)
         {
             CommandType commandType = CommandClassifier.commandType(re);
@@ -359,6 +384,8 @@ namespace MeterClient
 
             switch (commandType)
             {
+                
+
                 case CommandType.MSIM_READ:
                     sendCmd = "C4 01 81 00 09 14 38 39 39 32 33 30 30 30 30 30 34 35 33 31 34 31 39 37 37 46";
                     var cmdArr = sendCmd.Split(' ');
@@ -522,6 +549,16 @@ namespace MeterClient
                     }
                     sendCmd = "";
                     break;
+                case CommandType.Event:
+                    Logger.Instance.Log(conf.msn, "Event Data Read", "");
+                     re = await conf.mdsm.ProcessCommandForEventDataAsync(re, stream, conf);
+                    if (re != "")
+                    {
+                        await ProcessCommandAsync(stream, conf, re);
+                        return;
+                    }
+                    sendCmd = "";
+                    break;
                 case CommandType.BILL_DATA_READ:
                     re = await conf.mdsm.ProcessCommandForBillingDataAsync(re, stream, conf);
                     if (re != "")
@@ -531,6 +568,16 @@ namespace MeterClient
                     }
                     sendCmd = "";
                     break;
+                case CommandType.MBILL_DATA_READ:
+                    re = await conf.mdsm.ProcessCommandForMBillingDataAsync(re, stream, conf);
+                    if (re != "")
+                    {
+                        await ProcessCommandAsync(stream, conf, re);
+                        return;
+                    }
+                    sendCmd = "";
+                    break;
+
                 case CommandType.LPRO_DATA_READ:
                     re = await conf.mdsm.ProcessCommandForLPRODataAsync(re, stream, conf);
                     if (re != "")
@@ -562,12 +609,19 @@ namespace MeterClient
             }
         }
 
+        /// <summary>
+        /// Asynchronously reads a command from the network stream and converts it to a hex string.
+        /// </summary>
+        /// <param name="stream">The network stream to read from.</param>
+        /// <param name="conf">The meter configuration context.</param>
+        /// <param name="needsLogg">Whether to log the received data.</param>
+        /// <returns>The received command as a hex string.</returns>
         public static async Task<string> ReadCommand(NetworkStream stream, MeterConfiguration conf, bool needsLogg = false)
         {
             string re = "";
             try
             {
-                var data = new byte[1024];
+                var data = new byte[512];
 
                 stream.ReadTimeout = 200000;
 
@@ -600,6 +654,14 @@ namespace MeterClient
             return re;
         }
 
+        /// <summary>
+        /// Asynchronously sends a hex command string over the network stream.
+        /// </summary>
+        /// <param name="stream">The network stream to write to.</param>
+        /// <param name="commandStr">The hex command string to send.</param>
+        /// <param name="conf">The meter configuration context.</param>
+        /// <param name="needsLogg">Whether to log the sent data.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
         public static async Task SendCommandAsync(NetworkStream stream, string commandStr, MeterConfiguration conf, bool needsLogg = false)
         {
             try
@@ -625,7 +687,6 @@ namespace MeterClient
             catch (Exception ex)
             {
                 Console.WriteLine($"Meter {conf.msn}: " + ex.Message);
-                await SendCommandAsync(stream, error, conf, false);
             }
         }
 
